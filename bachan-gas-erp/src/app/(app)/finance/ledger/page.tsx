@@ -111,37 +111,37 @@ export default function LedgerPage() {
       {currentCust && (
         <>
           {/* Summary Cards */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
-            <div style={{ ...card(), padding: 18 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: ".05em" }}>Customer Opening Balance</div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: "#1e293b", marginTop: 4 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }} className="stat-grid-4">
+            <div style={{ ...card(), padding: "14px 16px" }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: ".05em" }}>Customer Opening Balance</div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: "#1e293b", marginTop: 4 }}>
                 {currentCust.outstanding !== null ? INR(0) : "Not Yet Configured"}
               </div>
-              <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
                 {currentCust.outstanding !== null ? "Financial position initialized" : "Opening balance unconfigured"}
               </div>
             </div>
 
-            <div style={{ ...card(), padding: 18 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#1e3a8a", textTransform: "uppercase", letterSpacing: ".05em" }}>Total Invoiced Debits</div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: "#1e3a8a", marginTop: 4 }}>{INR(totalDebits)}</div>
-              <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>Across {entries.filter(e => e.debit > 0).length} invoice vouchers</div>
+            <div style={{ ...card(), padding: "14px 16px" }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: "#1e3a8a", textTransform: "uppercase", letterSpacing: ".05em" }}>Total Invoiced Debits</div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: "#1e3a8a", marginTop: 4 }}>{INR(totalDebits)}</div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Across {entries.filter(e => e.debit > 0).length} invoice vouchers</div>
             </div>
 
-            <div style={{ ...card(), padding: 18 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#16a34a", textTransform: "uppercase", letterSpacing: ".05em" }}>Total Payments Credited</div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: "#16a34a", marginTop: 4 }}>{INR(totalCredits)}</div>
-              <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>Across {entries.filter(e => e.credit > 0).length} receipts cleared</div>
+            <div style={{ ...card(), padding: "14px 16px" }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: "#16a34a", textTransform: "uppercase", letterSpacing: ".05em" }}>Total Payments Credited</div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: "#16a34a", marginTop: 4 }}>{INR(totalCredits)}</div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Across {entries.filter(e => e.credit > 0).length} receipts cleared</div>
             </div>
 
-            <div style={{ ...card(), padding: 18 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: (closingBalance || 0) > 0 ? "#dc2626" : "#16a34a", textTransform: "uppercase", letterSpacing: ".05em" }}>
+            <div style={{ ...card(), padding: "14px 16px" }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: (closingBalance || 0) > 0 ? "#dc2626" : "#16a34a", textTransform: "uppercase", letterSpacing: ".05em" }}>
                 Current Closing Balance
               </div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: (closingBalance || 0) > 0 ? "#dc2626" : "#16a34a", marginTop: 4 }}>
+              <div style={{ fontSize: 20, fontWeight: 900, color: (closingBalance || 0) > 0 ? "#dc2626" : "#16a34a", marginTop: 4 }}>
                 {closingBalance !== null ? INR(closingBalance) : "Not Yet Configured"}
               </div>
-              <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
                 {closingBalance !== null ? "Net balance due" : "No posted debit/credit vouchers"}
               </div>
             </div>
@@ -149,13 +149,14 @@ export default function LedgerPage() {
 
           {/* Ledger Table */}
           <div style={{ ...card(), overflow: "hidden" }}>
-            <div style={{ padding: "14px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ padding: "14px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: "#1e293b" }}>
                 Statement of Account — {currentCust.name} ({currentCust.code})
               </span>
               <span style={{ fontSize: 12, color: "#64748b" }}>{entries.length} transactions recorded</span>
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0" }}>
                   {["Date", "Voucher Ref", "Voucher Type", "Particulars", "Debit (₹)", "Credit (₹)", "Running Balance (₹)"].map(h => (
@@ -195,6 +196,7 @@ export default function LedgerPage() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </>
       )}

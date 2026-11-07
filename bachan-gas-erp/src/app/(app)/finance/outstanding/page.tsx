@@ -78,127 +78,163 @@ export default function OutstandingPage() {
       </div>
 
       {/* KPIs */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
-        <div style={{ ...card(), padding: 18 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#dc2626", marginBottom: 8 }}>
-            <Receipt size={18} />
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>Total Receivables</span>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }} className="stat-grid-4">
+        <div style={{ ...card(), padding: "14px 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#dc2626", marginBottom: 6 }}>
+            <Receipt size={17} />
+            <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>Total Receivables</span>
           </div>
-          <div style={{ fontSize: 24, fontWeight: 900, color: "#dc2626" }}>
+          <div style={{ fontSize: 20, fontWeight: 900, color: "#dc2626" }}>
             {configuredCusts.length > 0 ? INR(total) : "Not Configured"}
           </div>
-          <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
-            {configuredCusts.length > 0 ? `Across ${configuredCusts.length} debit accounts` : "Customer opening balances not yet configured"}
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+            {configuredCusts.length > 0 ? `Across ${configuredCusts.length} debit accounts` : "Opening balances not yet configured"}
           </div>
         </div>
 
-        <div style={{ ...card(), padding: 18 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: totalOverdue > 0 ? "#dc2626" : "#16a34a", marginBottom: 8 }}>
-            <AlertCircle size={18} />
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>Overdue (&gt;30 Days)</span>
+        <div style={{ ...card(), padding: "14px 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: totalOverdue > 0 ? "#dc2626" : "#16a34a", marginBottom: 6 }}>
+            <AlertCircle size={17} />
+            <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>Overdue (&gt;30 Days)</span>
           </div>
-          <div style={{ fontSize: 24, fontWeight: 900, color: totalOverdue > 0 ? "#dc2626" : "#16a34a" }}>
+          <div style={{ fontSize: 20, fontWeight: 900, color: totalOverdue > 0 ? "#dc2626" : "#16a34a" }}>
             {totalOverdue > 0 ? INR(totalOverdue) : "₹0"}
           </div>
-          <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
             {totalOverdue > 0 ? "Requires payment recovery" : "Zero overdue accounts"}
           </div>
         </div>
 
-        <div style={{ ...card(), padding: 18 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#1e3a8a", marginBottom: 8 }}>
-            <Users size={18} />
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>Total Consumer Base</span>
+        <div style={{ ...card(), padding: "14px 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#1e3a8a", marginBottom: 6 }}>
+            <Users size={17} />
+            <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>Total Consumer Base</span>
           </div>
-          <div style={{ fontSize: 24, fontWeight: 900, color: "#1e3a8a" }}>{customers.length} Accounts</div>
-          <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>Active commercial accounts</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: "#1e3a8a" }}>{customers.length} Accounts</div>
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Active commercial accounts</div>
         </div>
 
-        <div style={{ ...card(), padding: 18 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#7c3aed", marginBottom: 8 }}>
-            <BarChart3 size={18} />
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>Opening Balance Status</span>
+        <div style={{ ...card(), padding: "14px 16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#7c3aed", marginBottom: 6 }}>
+            <BarChart3 size={17} />
+            <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>Opening Balance Status</span>
           </div>
-          <div style={{ fontSize: 20, fontWeight: 900, color: "#7c3aed" }}>
+          <div style={{ fontSize: 18, fontWeight: 900, color: "#7c3aed" }}>
             {configuredCusts.length} Configured
           </div>
-          <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
             {customers.length - configuredCusts.length} unconfigured accounts
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div style={{ ...card(), padding: "14px 18px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", flex: 1, minWidth: 240, background: "#f8fafc" }}>
+      <div className="customers-filter-bar" style={{ ...card(), padding: "14px 18px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div className="filter-search-box" style={{ display: "flex", alignItems: "center", gap: 8, border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", flex: 1, minWidth: 220, background: "#f8fafc" }}>
           <Search size={14} color="#94a3b8" />
           <input
-            placeholder="Search by customer name, consumer code, city..."
+            placeholder="Search customer, code, city..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{ background: "transparent", border: "none", outline: "none", fontSize: 13, width: "100%" }}
           />
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="filter-selects-row" style={{ display: "flex", gap: 6, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
           {[
             { id: "all", label: "All Accounts" },
             { id: "configured", label: "Configured Balances" },
             { id: "overdue", label: "Overdue Only" },
           ].map(b => (
             <button key={b.id} onClick={() => setFilter(b.id as any)}
-              style={{ padding: "8px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, border: "1.5px solid", borderColor: filter === b.id ? "#1e3a8a" : "#e2e8f0", background: filter === b.id ? "#1e3a8a" : "#fff", color: filter === b.id ? "#fff" : "#64748b", cursor: "pointer" }}>
+              style={{ padding: "7px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, border: "1.5px solid", borderColor: filter === b.id ? "#1e3a8a" : "#e2e8f0", background: filter === b.id ? "#1e3a8a" : "#fff", color: filter === b.id ? "#fff" : "#64748b", cursor: "pointer", whiteSpace: "nowrap" }}>
               {b.label}
             </button>
           ))}
         </div>
-        <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>
+        <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600, marginLeft: "auto" }}>
           Showing {filtered.length} of {customers.length} accounts
         </span>
       </div>
 
-      {/* Table */}
-      <div style={{ ...card(), overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0" }}>
-              {["Customer", "City / Area", "Outstanding Due (₹)", "Overdue (₹)", "Credit Limit (₹)", "Payment Terms", "Last Supply", "Action"].map(h => (
-                <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "#64748b", whiteSpace: "nowrap" }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.slice(0, 50).map(c => (
-              <tr key={c.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                <td style={{ padding: "12px 16px" }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{c.name}</div>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Code: {c.code}</div>
-                </td>
-                <td style={{ padding: "12px 16px", fontSize: 12.5, color: "#1e293b" }}>{c.city}</td>
-                <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 800, color: (c.outstanding || 0) > 0 ? "#dc2626" : "#64748b" }}>
-                  {c.outstanding !== null ? INR(c.outstanding) : <span style={{ color: "#94a3b8", fontStyle: "italic", fontSize: 11.5 }}>Not Yet Configured</span>}
-                </td>
-                <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700, color: (c.overdue || 0) > 0 ? "#dc2626" : "#16a34a" }}>
-                  {(c.overdue || 0) > 0 ? INR(c.overdue) : "₹0"}
-                </td>
-                <td style={{ padding: "12px 16px", fontSize: 13 }}>
-                  {c.credit_limit !== null ? INR(c.credit_limit) : <span style={{ color: "#94a3b8", fontStyle: "italic", fontSize: 11.5 }}>Not Configured</span>}
-                </td>
-                <td style={{ padding: "12px 16px", fontSize: 12.5, color: "#64748b" }}>{c.payment_terms}</td>
-                <td style={{ padding: "12px 16px", fontSize: 12, color: "#64748b" }}>{c.last_supply}</td>
-                <td style={{ padding: "12px 16px" }}>
-                  <Link href={`/customers/${c.id}`} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11.5, color: "#f97316", textDecoration: "none", fontWeight: 700 }}>
-                    Profile <ChevronRight size={12} />
-                  </Link>
-                </td>
+      {/* Desktop Table View */}
+      <div className="desktop-only-table" style={{ ...card(), overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0" }}>
+                {["Customer", "City / Area", "Outstanding Due (₹)", "Overdue (₹)", "Credit Limit (₹)", "Payment Terms", "Last Supply", "Action"].map(h => (
+                  <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "#64748b", whiteSpace: "nowrap" }}>{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.slice(0, 50).map(c => (
+                <tr key={c.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                  <td style={{ padding: "12px 16px" }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{c.name}</div>
+                    <div style={{ fontSize: 11, color: "#64748b" }}>Code: {c.code}</div>
+                  </td>
+                  <td style={{ padding: "12px 16px", fontSize: 12.5, color: "#1e293b" }}>{c.city}</td>
+                  <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 800, color: (c.outstanding || 0) > 0 ? "#dc2626" : "#64748b" }}>
+                    {c.outstanding !== null ? INR(c.outstanding) : <span style={{ color: "#94a3b8", fontStyle: "italic", fontSize: 11.5 }}>Not Yet Configured</span>}
+                  </td>
+                  <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700, color: (c.overdue || 0) > 0 ? "#dc2626" : "#16a34a" }}>
+                    {(c.overdue || 0) > 0 ? INR(c.overdue) : "₹0"}
+                  </td>
+                  <td style={{ padding: "12px 16px", fontSize: 13 }}>
+                    {c.credit_limit !== null ? INR(c.credit_limit) : <span style={{ color: "#94a3b8", fontStyle: "italic", fontSize: 11.5 }}>Not Configured</span>}
+                  </td>
+                  <td style={{ padding: "12px 16px", fontSize: 12.5, color: "#64748b" }}>{c.payment_terms}</td>
+                  <td style={{ padding: "12px 16px", fontSize: 12, color: "#64748b" }}>{c.last_supply}</td>
+                  <td style={{ padding: "12px 16px" }}>
+                    <Link href={`/customers/${c.id}`} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11.5, color: "#f97316", textDecoration: "none", fontWeight: 700 }}>
+                      Profile <ChevronRight size={12} />
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         {filtered.length > 50 && (
           <div style={{ padding: 12, textAlign: "center", fontSize: 12, color: "#64748b", background: "#f8fafc" }}>
             Showing top 50 of {filtered.length} accounts. Use search to filter specific customers.
           </div>
         )}
+      </div>
+
+      {/* Mobile Outstanding Cards View */}
+      <div className="mobile-only-cards" style={{ display: "none" }}>
+        {filtered.slice(0, 50).map(c => (
+          <div key={c.id} style={{
+            ...card(), padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8,
+            borderLeft: `4px solid ${(c.outstanding || 0) > 0 ? "#dc2626" : "#16a34a"}`
+          }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+              <div>
+                <Link href={`/customers/${c.id}`} style={{ fontSize: 13.5, fontWeight: 700, color: "#0d1f3c", textDecoration: "none" }}>
+                  {c.name}
+                </Link>
+                <div style={{ fontSize: 11, color: "#64748b" }}>Code: {c.code} · {c.city}</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 14, fontWeight: 900, color: (c.outstanding || 0) > 0 ? "#dc2626" : "#16a34a" }}>
+                  {INR(c.outstanding)}
+                </div>
+                {(c.overdue || 0) > 0 && (
+                  <span style={{ fontSize: 10, color: "#dc2626", fontWeight: 700 }}>Overdue: {INR(c.overdue)}</span>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, color: "#64748b", paddingTop: 4, borderTop: "1px solid #f1f5f9" }}>
+              <span>Terms: {c.payment_terms || "15 Days Net"}</span>
+              <Link href={`/customers/${c.id}`} style={{ fontSize: 11.5, color: "#f97316", textDecoration: "none", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 2 }}>
+                Profile <ChevronRight size={12} />
+              </Link>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

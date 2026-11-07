@@ -115,7 +115,22 @@ export default function OrdersPage() {
       </div>
 
       {/* Status Filter Chips */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 10 }}>
+      <div style={{
+        display: "flex", gap: 8, overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 4
+      }} className="tab-scroll-bar">
+        <button
+          onClick={() => setStatusFilter("all")}
+          style={{
+            flex: "0 0 auto", minWidth: 85,
+            background: statusFilter === "all" ? "#1e3a8a" : "#fff",
+            border: `2px solid ${statusFilter === "all" ? "#1e3a8a" : "#e2e8f0"}`,
+            borderRadius: 10, padding: "8px 12px", textAlign: "center",
+            cursor: "pointer", color: statusFilter === "all" ? "#fff" : "#1e3a8a"
+          }}
+        >
+          <div style={{ fontSize: 17, fontWeight: 900 }}>{orders.length}</div>
+          <div style={{ fontSize: 10, fontWeight: 700, marginTop: 1 }}>All Orders</div>
+        </button>
         {Object.entries(STATUS_CONFIG).map(([k, v]) => {
           const cnt = orders.filter(o => o.status === k).length;
           const sel = statusFilter === k;
@@ -124,25 +139,26 @@ export default function OrdersPage() {
               key={k}
               onClick={() => setStatusFilter(sel ? "all" : k)}
               style={{
+                flex: "0 0 auto", minWidth: 85,
                 background: sel ? v.bg : "#fff",
                 border: `2px solid ${sel ? v.color : "#e2e8f0"}`,
-                borderRadius: 10, padding: 12, textAlign: "center",
+                borderRadius: 10, padding: "8px 12px", textAlign: "center",
                 transition: "all .15s", cursor: "pointer",
                 boxShadow: "0 1px 3px rgba(0,0,0,.04)",
               }}
             >
-              <div style={{ fontSize: 20, fontWeight: 900, color: v.color }}>{cnt}</div>
-              <div style={{ fontSize: 10, fontWeight: 600, color: v.color, marginTop: 2 }}>{v.label}</div>
+              <div style={{ fontSize: 17, fontWeight: 900, color: v.color }}>{cnt}</div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: v.color, marginTop: 1, whiteSpace: "nowrap" }}>{v.label}</div>
             </button>
           );
         })}
       </div>
 
       {/* Filter Bar */}
-      <div style={{ ...card(), padding: "14px 18px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <div style={{
+      <div className="customers-filter-bar" style={{ ...card(), padding: "14px 18px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div className="filter-search-box" style={{
           display: "flex", alignItems: "center", gap: 8, border: "1.5px solid #e2e8f0",
-          borderRadius: 8, padding: "8px 13px", flex: 1, minWidth: 240, background: "#f8fafc"
+          borderRadius: 8, padding: "8px 13px", flex: 1, minWidth: 220, background: "#f8fafc"
         }}>
           <Search size={14} color="#94a3b8" />
           <input
@@ -158,39 +174,41 @@ export default function OrdersPage() {
           )}
         </div>
 
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-          style={{ border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 13px", fontSize: 13, color: "#1e293b", background: "#f8fafc", outline: "none", cursor: "pointer" }}
-        >
-          <option value="all">All Statuses ({orders.length})</option>
-          {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-            <option key={k} value={k}>{v.label} ({orders.filter(o => o.status === k).length})</option>
-          ))}
-        </select>
-
-        <input
-          type="date"
-          value={dateFilter}
-          onChange={e => setDateFilter(e.target.value)}
-          style={{ border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 13px", fontSize: 13, color: "#1e293b", background: "#f8fafc", outline: "none", cursor: "pointer" }}
-        />
-        {dateFilter && (
-          <button
-            onClick={() => setDateFilter("")}
-            style={{ fontSize: 12, color: "#f97316", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
+        <div className="filter-selects-row" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            style={{ border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#1e293b", background: "#f8fafc", outline: "none", cursor: "pointer" }}
           >
-            Clear Date
-          </button>
-        )}
+            <option value="all">All Statuses ({orders.length})</option>
+            {Object.entries(STATUS_CONFIG).map(([k, v]) => (
+              <option key={k} value={k}>{v.label} ({orders.filter(o => o.status === k).length})</option>
+            ))}
+          </select>
+
+          <input
+            type="date"
+            value={dateFilter}
+            onChange={e => setDateFilter(e.target.value)}
+            style={{ border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 10px", fontSize: 12.5, color: "#1e293b", background: "#f8fafc", outline: "none", cursor: "pointer" }}
+          />
+          {dateFilter && (
+            <button
+              onClick={() => setDateFilter("")}
+              style={{ fontSize: 12, color: "#f97316", background: "none", border: "none", cursor: "pointer", fontWeight: 600, flexShrink: 0 }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
 
         <div style={{ marginLeft: "auto", fontSize: 12, color: "#64748b", fontWeight: 600, flexShrink: 0 }}>
           {filtered.length} orders · {totalCylinders} cylinders · {INR(totalValue)}
         </div>
       </div>
 
-      {/* Orders Table */}
-      <div style={{ ...card(), overflow: "hidden" }}>
+      {/* Orders Desktop Table */}
+      <div className="desktop-only-table" style={{ ...card(), overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
@@ -308,6 +326,109 @@ export default function OrdersPage() {
           <span>Showing {filtered.length} of {orders.length} total orders</span>
           <span>Click any order number to inspect line items, driver dispatch & invoice status</span>
         </div>
+      </div>
+
+      {/* Orders Mobile Cards View */}
+      <div className="mobile-only-cards" style={{ display: "none" }}>
+        {filtered.length === 0 ? (
+          <div style={{ ...card(), padding: 30, textAlign: "center", color: "#64748b" }}>
+            No orders match your filter criteria.
+          </div>
+        ) : (
+          filtered.map(o => {
+            const s = STATUS_CONFIG[o.status] || STATUS_CONFIG.confirmed;
+            const firstItem = o.items[0];
+            return (
+              <div key={o.id} style={{
+                ...card(), padding: "12px 14px", display: "flex", flexDirection: "column", gap: 9,
+                borderLeft: `4px solid ${s.color}`
+              }}>
+                {/* Header: Order # + Status Badge */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <Link href={`/orders/${o.id}`} style={{
+                    fontFamily: "monospace", fontWeight: 800, color: "#1e3a8a", fontSize: 13, textDecoration: "none"
+                  }}>
+                    {o.num}
+                  </Link>
+                  <span style={{
+                    padding: "2px 8px", borderRadius: 100, fontSize: 10, fontWeight: 700,
+                    textTransform: "uppercase", background: s.bg, color: s.color
+                  }}>
+                    {s.label}
+                  </span>
+                </div>
+
+                {/* Customer name */}
+                <div>
+                  <Link href={`/customers/${o.customerId}`} style={{
+                    fontSize: 13.5, fontWeight: 700, color: "#0d1f3c", textDecoration: "none"
+                  }}>
+                    {o.customerName}
+                  </Link>
+                  <span style={{ fontSize: 11, color: "#64748b", marginLeft: 6 }}>({o.customerCode})</span>
+                </div>
+
+                {/* Info grid */}
+                <div style={{
+                  display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6,
+                  padding: "8px 10px", background: "#f8fafc", borderRadius: 8, fontSize: 11
+                }}>
+                  <div>
+                    <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>PRODUCT</span>
+                    <span style={{ color: "#1e293b", fontWeight: 600 }}>{firstItem?.productName || "Commercial LPG 19kg"}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>QUANTITY</span>
+                    <span style={{ fontWeight: 800, color: "#1e293b" }}>{o.totalQty} cylinders</span>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>ORDER DATE</span>
+                    <span style={{ color: "#64748b" }}>{o.date}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>TOTAL AMOUNT</span>
+                    <span style={{ fontWeight: 800, color: "#0d1f3c", fontSize: 12 }}>{INR(o.total)}</span>
+                  </div>
+                </div>
+
+                {/* Actions row */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
+                  {o.status === "confirmed" && (
+                    <button
+                      onClick={() => updateOrderStatus(o.id, "approved")}
+                      style={{
+                        padding: "5px 10px", borderRadius: 6, fontSize: 11,
+                        fontWeight: 700, background: "#ede9fe", color: "#6d28d9", border: "none", cursor: "pointer"
+                      }}
+                    >
+                      Approve Order
+                    </button>
+                  )}
+                  {o.status === "approved" && (
+                    <button
+                      onClick={() => updateOrderStatus(o.id, "pending_dispatch")}
+                      style={{
+                        padding: "5px 10px", borderRadius: 6, fontSize: 11,
+                        fontWeight: 700, background: "#fef3c7", color: "#92400e", border: "none", cursor: "pointer"
+                      }}
+                    >
+                      Dispatch
+                    </button>
+                  )}
+                  <Link
+                    href={`/orders/${o.id}`}
+                    style={{
+                      padding: "5px 12px", borderRadius: 6, fontSize: 11,
+                      fontWeight: 600, background: "#f1f5f9", color: "#1e293b", textDecoration: "none"
+                    }}
+                  >
+                    View Details →
+                  </Link>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );

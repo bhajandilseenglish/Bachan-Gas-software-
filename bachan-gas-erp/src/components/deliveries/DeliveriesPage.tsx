@@ -139,28 +139,28 @@ export default function DeliveriesPage() {
       </div>
 
       {/* Stats Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }} className="stat-grid-4">
         {[
           { label: "Total Deliveries", val: deliveries.length, color: "#1e3a8a", Icon: Truck },
           { label: "Delivered & Invoiced", val: deliveredCount, color: "#16a34a", Icon: CheckCircle2 },
           { label: "Pending Supply", val: pendingCount, color: "#d97706", Icon: Clock },
           { label: "Cylinders Delivered", val: `${totalCylindersDelivered} cyl`, color: "#f97316", Icon: Package },
         ].map(s => (
-          <div key={s.label} style={{ ...card(), padding: "16px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 42, height: 42, borderRadius: 10, background: s.color + "15", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <s.Icon size={20} color={s.color} />
+          <div key={s.label} style={{ ...card(), padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: s.color + "15", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <s.Icon size={18} color={s.color} />
             </div>
-            <div>
-              <div style={{ fontSize: 20, fontWeight: 900, color: s.color }}>{s.val}</div>
-              <div style={{ fontSize: 12, color: "#64748b", fontWeight: 500 }}>{s.label}</div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 18, fontWeight: 900, color: s.color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.val}</div>
+              <div style={{ fontSize: 11, color: "#64748b", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.label}</div>
             </div>
           </div>
         ))}
       </div>
 
       {/* Filter Tabs */}
-      <div style={{ ...card(), padding: "12px 18px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", gap: 6 }}>
+      <div className="customers-filter-bar" style={{ ...card(), padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div className="filter-selects-row" style={{ display: "flex", gap: 6, overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 2 }}>
           {[
             { id: "all", label: `All (${deliveries.length})` },
             { id: "pending", label: `Pending (${pendingCount})` },
@@ -171,10 +171,11 @@ export default function DeliveriesPage() {
               key={t.id}
               onClick={() => setFilter(t.id)}
               style={{
-                padding: "7px 14px", borderRadius: 8, fontSize: 12.5, fontWeight: 600,
+                flex: "0 0 auto",
+                padding: "7px 13px", borderRadius: 8, fontSize: 12, fontWeight: 600,
                 background: filter === t.id ? "#1e3a8a" : "#f1f5f9",
                 color: filter === t.id ? "#fff" : "#475569",
-                border: "none", cursor: "pointer", transition: "all .15s"
+                border: "none", cursor: "pointer", transition: "all .15s", whiteSpace: "nowrap"
               }}
             >
               {t.label}
@@ -182,7 +183,7 @@ export default function DeliveriesPage() {
           ))}
         </div>
 
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "7px 12px", width: 280 }}>
+        <div className="filter-search-box" style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "7px 12px", minWidth: 220, flex: 1 }}>
           <Clock size={14} color="#94a3b8" />
           <input
             placeholder="Search delivery, vehicle, driver..."
@@ -198,8 +199,8 @@ export default function DeliveriesPage() {
         </div>
       </div>
 
-      {/* Table */}
-      <div style={{ ...card(), overflow: "hidden" }}>
+      {/* Desktop Table View */}
+      <div className="desktop-only-table" style={{ ...card(), overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
@@ -309,6 +310,81 @@ export default function DeliveriesPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Mobile Deliveries Cards View */}
+      <div className="mobile-only-cards" style={{ display: "none" }}>
+        {filtered.length === 0 ? (
+          <div style={{ ...card(), padding: 30, textAlign: "center", color: "#64748b" }}>
+            No delivery records found matching current filter.
+          </div>
+        ) : (
+          filtered.map(d => {
+            const s = STATUS_CONFIG[d.status] || STATUS_CONFIG.pending;
+            return (
+              <div key={d.id} style={{
+                ...card(), padding: "12px 14px", display: "flex", flexDirection: "column", gap: 9,
+                borderLeft: `4px solid ${s.color}`
+              }}>
+                {/* Header: Delivery # + Status */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <span style={{ fontFamily: "monospace", fontWeight: 800, color: "#1e3a8a", fontSize: 13 }}>
+                    {d.num}
+                  </span>
+                  <span style={{
+                    padding: "2px 8px", borderRadius: 100, fontSize: 10, fontWeight: 700,
+                    textTransform: "uppercase", background: s.bg, color: s.color
+                  }}>
+                    {s.label}
+                  </span>
+                </div>
+
+                {/* Customer & Order */}
+                <div>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "#0d1f3c" }}>{d.customerName}</div>
+                  <div style={{ fontSize: 11, color: "#64748b" }}>Order #{d.orderNum} · {d.date}</div>
+                </div>
+
+                {/* Details grid */}
+                <div style={{
+                  display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6,
+                  padding: "8px 10px", background: "#f8fafc", borderRadius: 8, fontSize: 11
+                }}>
+                  <div>
+                    <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>CYLINDER</span>
+                    <span style={{ color: "#1e293b", fontWeight: 600 }}>{d.product}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>QUANTITY</span>
+                    <span style={{ fontWeight: 800, color: "#1e293b" }}>{d.qty} cylinders</span>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>VEHICLE</span>
+                    <span style={{ color: "#1e293b", fontWeight: 600 }}>{d.vehicle || "PB-10-AR-8821"}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>DRIVER</span>
+                    <span style={{ color: "#1e293b", fontWeight: 600 }}>{d.driver || "Harpreet Singh"}</span>
+                  </div>
+                </div>
+
+                {/* Confirm button if pending */}
+                {d.status === "pending" && (
+                  <button
+                    onClick={() => setConfirmModalDelivery(d)}
+                    style={{
+                      width: "100%", padding: "8px", borderRadius: 7, fontSize: 12,
+                      fontWeight: 700, background: "#16a34a", color: "#fff", border: "none", cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 6
+                    }}
+                  >
+                    <Check size={14} /> Confirm Delivery Completion
+                  </button>
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
 
       {/* Confirm Delivery Modal */}

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search, Upload, Download, Plus, Eye, Pencil, Trash2, Users,
-  CheckCircle, XCircle, IndianRupee, X, ChevronRight, RotateCcw
+  CheckCircle, XCircle, IndianRupee, X, ChevronRight, RotateCcw,
+  Phone, MapPin, Building2
 } from "lucide-react";
 import { useERPStore, Customer } from "@/lib/store";
 
@@ -115,31 +116,31 @@ export default function CustomersPage() {
       </div>
 
       {/* Stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }} className="stat-grid-4">
         {[
           { label: "Total Customers", val: customers.length, Icon: Users, color: "#1e3a8a" },
           { label: "Active Accounts", val: activeCount, Icon: CheckCircle, color: "#16a34a" },
           { label: "Inactive / Suspended", val: customers.length - activeCount, Icon: XCircle, color: "#64748b" },
           { label: "Total Outstanding Due", val: INR(totalOut), Icon: IndianRupee, color: "#dc2626" },
         ].map(s => (
-          <div key={s.label} style={{ ...card(), padding: "16px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 42, height: 42, borderRadius: 10, background: s.color + "15", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <s.Icon size={20} color={s.color} />
+          <div key={s.label} style={{ ...card(), padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: s.color + "15", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <s.Icon size={18} color={s.color} />
             </div>
-            <div>
-              <div style={{ fontSize: 20, fontWeight: 900, color: s.color }}>{s.val}</div>
-              <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{s.label}</div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: 18, fontWeight: 900, color: s.color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.val}</div>
+              <div style={{ fontSize: 11, color: "#64748b", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.label}</div>
             </div>
           </div>
         ))}
       </div>
 
       {/* Filters */}
-      <div style={{ ...card(), padding: "14px 18px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8, border:"1.5px solid #e2e8f0", borderRadius:8, padding:"8px 13px", flex:1, minWidth:240, background:"#f8fafc" }}>
+      <div className="customers-filter-bar" style={{ ...card(), padding: "14px 18px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div className="filter-search-box" style={{ display:"flex", alignItems:"center", gap:8, border:"1.5px solid #e2e8f0", borderRadius:8, padding:"8px 13px", flex:1, minWidth:220, background:"#f8fafc" }}>
           <Search size={14} color="#94a3b8" />
           <input
-            placeholder="Search by customer name, business, consumer code, mobile, city..."
+            placeholder="Search customer, business, mobile, code..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{ background:"transparent", border:"none", outline:"none", fontSize:13, color:"#1e293b", width:"100%" }}
@@ -151,39 +152,41 @@ export default function CustomersPage() {
           )}
         </div>
 
-        <select value={cat} onChange={e => setCat(e.target.value)}
-          style={{ border:"1.5px solid #e2e8f0", borderRadius:8, padding:"8px 13px", fontSize:13, color:"#1e293b", background:"#f8fafc", outline:"none", cursor:"pointer" }}>
-          <option value="all">All Categories</option>
-          <option value="commercial">Commercial</option>
-          <option value="domestic">Domestic</option>
-          <option value="industrial">Industrial</option>
-          <option value="institutional">Institutional</option>
-        </select>
+        <div className="filter-selects-row" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <select value={cat} onChange={e => setCat(e.target.value)}
+            style={{ border:"1.5px solid #e2e8f0", borderRadius:8, padding:"8px 12px", fontSize:13, color:"#1e293b", background:"#f8fafc", outline:"none", cursor:"pointer" }}>
+            <option value="all">All Categories</option>
+            <option value="commercial">Commercial</option>
+            <option value="domestic">Domestic</option>
+            <option value="industrial">Industrial</option>
+            <option value="institutional">Institutional</option>
+          </select>
 
-        <select value={status} onChange={e => setStatus(e.target.value)}
-          style={{ border:"1.5px solid #e2e8f0", borderRadius:8, padding:"8px 13px", fontSize:13, color:"#1e293b", background:"#f8fafc", outline:"none", cursor:"pointer" }}>
-          <option value="all">All Statuses</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-          <option value="suspended">Suspended</option>
-        </select>
+          <select value={status} onChange={e => setStatus(e.target.value)}
+            style={{ border:"1.5px solid #e2e8f0", borderRadius:8, padding:"8px 12px", fontSize:13, color:"#1e293b", background:"#f8fafc", outline:"none", cursor:"pointer" }}>
+            <option value="all">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="suspended">Suspended</option>
+          </select>
 
-        {(search || cat !== "all" || status !== "all") && (
-          <button
-            onClick={() => { setSearch(""); setCat("all"); setStatus("all"); }}
-            style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "8px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, color: "#dc2626", background: "#fee2e2", border: "none", cursor: "pointer" }}
-          >
-            <RotateCcw size={12} /> Reset
-          </button>
-        )}
+          {(search || cat !== "all" || status !== "all") && (
+            <button
+              onClick={() => { setSearch(""); setCat("all"); setStatus("all"); }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "8px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600, color: "#dc2626", background: "#fee2e2", border: "none", cursor: "pointer", flexShrink: 0 }}
+            >
+              <RotateCcw size={12} /> Reset
+            </button>
+          )}
+        </div>
 
         <div style={{ marginLeft: "auto", fontSize: 12, color: "#64748b", fontWeight: 600, flexShrink: 0 }}>
           Showing {filtered.length} of {customers.length} customers
         </div>
       </div>
 
-      {/* Table */}
-      <div style={{ ...card(), overflow: "hidden" }}>
+      {/* Desktop Table View */}
+      <div className="desktop-only-table" style={{ ...card(), overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
@@ -305,6 +308,116 @@ export default function CustomersPage() {
             <span style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Page 1 of 1</span>
           </div>
         </div>
+      </div>
+
+      {/* Mobile Customer Cards View */}
+      <div className="mobile-only-cards" style={{ display: "none" }}>
+        {filtered.length === 0 ? (
+          <div style={{ ...card(), padding: 30, textAlign: "center", color: "#64748b" }}>
+            No customers match the current filter criteria.
+          </div>
+        ) : (
+          filtered.map((c, i) => {
+            const catS = CAT_STYLE[c.category] || { bg: "#f1f5f9", color: "#475569" };
+            return (
+              <div key={c.id} style={{
+                ...card(), padding: "12px 14px", display: "flex", flexDirection: "column", gap: 9,
+                borderLeft: `4px solid ${c.status === "active" ? "#16a34a" : "#94a3b8"}`
+              }}>
+                {/* Header Row: Avatar + Name + Badges */}
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 9, flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 8,
+                      background: AVATAR_COLORS[i % AVATAR_COLORS.length],
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 13, fontWeight: 800, color: "#fff", flexShrink: 0
+                    }}>
+                      {c.name[0]}
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <Link href={`/customers/${c.id}`} style={{
+                        fontSize: 13.5, fontWeight: 700, color: "#0d1f3c", textDecoration: "none",
+                        display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
+                      }}>
+                        {c.name}
+                      </Link>
+                      <div style={{ fontSize: 11, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {c.business}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                    <span style={{
+                      padding: "2px 7px", borderRadius: 100, fontSize: 9.5, fontWeight: 700,
+                      textTransform: "uppercase", background: catS.bg, color: catS.color
+                    }}>
+                      {c.category}
+                    </span>
+                    <span style={{
+                      padding: "2px 6px", borderRadius: 100, fontSize: 9.5, fontWeight: 700,
+                      background: c.status === "active" ? "#dcfce7" : "#f1f5f9",
+                      color: c.status === "active" ? "#15803d" : "#475569"
+                    }}>
+                      {c.status}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Details Grid */}
+                <div style={{
+                  display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6,
+                  padding: "8px 10px", background: "#f8fafc", borderRadius: 8, fontSize: 11
+                }}>
+                  <div>
+                    <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>CONSUMER CODE</span>
+                    <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#1e3a8a" }}>{c.code}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>MOBILE</span>
+                    <a href={`tel:${c.mobile}`} style={{ color: "#0284c7", fontWeight: 600, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                      <Phone size={10} /> {c.mobile}
+                    </a>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>LOCATION</span>
+                    <span style={{ color: "#1e293b", fontWeight: 600, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {c.city} ({c.area})
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>OUTSTANDING DUE</span>
+                    <span style={{ fontWeight: 800, color: (c.outstanding || 0) > 0 ? "#dc2626" : "#16a34a" }}>
+                      {INR(c.outstanding)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Bottom Row */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <span style={{ fontSize: 10.5, color: "#94a3b8" }}>
+                    Last: {c.last_supply || "Never"}
+                  </span>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <Link href={`/orders/new?customerId=${c.id}`} style={{
+                      padding: "5px 9px", borderRadius: 6, fontSize: 11, fontWeight: 600,
+                      background: "#fff7ed", color: "#ea580c", border: "1px solid #fed7aa",
+                      textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3
+                    }}>
+                      + Order
+                    </Link>
+                    <Link href={`/customers/${c.id}`} style={{
+                      padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600,
+                      background: "#f1f5f9", color: "#1e293b", textDecoration: "none"
+                    }}>
+                      View Profile →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
   );
