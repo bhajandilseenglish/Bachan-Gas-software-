@@ -209,7 +209,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
           </div>
 
           {/* Action Buttons */}
-          <div style={{ display: "flex", gap: 10, flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", flexShrink: 0 }}>
             <Link href={`/customers/${c.id}/edit`}
               style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, fontSize: 12.5, fontWeight: 600, background: "#fff", color: "#64748b", border: "1.5px solid #e2e8f0", textDecoration: "none" }}>
               <Edit3 size={14} /> Edit Profile
@@ -293,19 +293,24 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
       </div>
 
       {/* Tabs */}
-      <div style={{ display: "flex", gap: 4, background: "#fff", padding: 4, borderRadius: 10, border: "1px solid #e2e8f0" }}>
+      <div style={{
+        display: "flex", gap: 6, background: "#fff", padding: 6,
+        borderRadius: 10, border: "1px solid #e2e8f0",
+        overflowX: "auto", WebkitOverflowScrolling: "touch"
+      }} className="tab-scroll-bar">
         {TABS.map(t => {
           const isAct = activeTab === t.id;
           return (
             <button key={t.id} onClick={() => setActiveTab(t.id)}
               style={{
-                flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                padding: "9px 12px", borderRadius: 8, fontSize: 13, fontWeight: isAct ? 700 : 500,
+                flex: "0 0 auto", display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+                padding: "8px 14px", borderRadius: 8, fontSize: 12.5, fontWeight: isAct ? 700 : 500,
                 cursor: "pointer", transition: "all .15s", border: "none",
                 background: isAct ? "#f97316" : "transparent",
                 color: isAct ? "#fff" : "#64748b",
+                whiteSpace: "nowrap"
               }}>
-              <t.Icon size={15} />
+              <t.Icon size={14} />
               {t.label}
             </button>
           );

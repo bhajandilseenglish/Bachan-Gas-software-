@@ -114,7 +114,7 @@ export default function DeliveriesPage() {
             {deliveredCount} completed · {pendingCount} pending supply · {totalCylindersDelivered} total cylinders delivered
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
             onClick={handleExportCSV}
             style={{

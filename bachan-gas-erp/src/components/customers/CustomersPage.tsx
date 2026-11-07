@@ -101,7 +101,7 @@ export default function CustomersPage() {
             {customers.length} total registered customers · {activeCount} active commercial accounts
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Link href="/customers/import" style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"8px 14px", borderRadius:8, fontSize:12.5, fontWeight:600, background:"#fff", color:"#64748b", border:"1.5px solid #e2e8f0", textDecoration:"none" }}>
             <Upload size={14} /> Import Excel (60k+)
           </Link>

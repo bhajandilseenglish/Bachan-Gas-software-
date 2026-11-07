@@ -90,7 +90,7 @@ export default function OrdersPage() {
             {orders.length} total orders · {orders.filter(o => o.status === "confirmed" || o.status === "pending_dispatch").length} active pipeline · {INR(orders.reduce((s, o) => s + o.total, 0))} total turnover
           </p>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button
             onClick={handleExportCSV}
             style={{

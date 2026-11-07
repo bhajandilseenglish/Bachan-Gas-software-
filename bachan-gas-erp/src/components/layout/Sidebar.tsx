@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Users, Building2, Upload, ShoppingCart, Plus, Clock,
   Truck, Package, Receipt, CreditCard, FileText, BookOpen, BarChart2,
   TrendingUp, PieChart, Settings, UserCog, ScrollText, FileArchive,
-  ChevronRight, Flame, Tag, History, Shield, LogOut
+  ChevronRight, Flame, Tag, History, Shield, LogOut, X
 } from "lucide-react";
 
 const NAV = [
@@ -132,44 +132,69 @@ export default function Sidebar({ collapsed, mobileOpen, onClose }: Props) {
     setOpen(p => p.includes(lbl) ? p.filter(x => x !== lbl) : [...p, lbl]);
 
   return (
-    <aside style={{
-      width: collapsed ? 64 : 250,
-      minWidth: collapsed ? 64 : 250,
-      height: "100vh",
-      background: "#0d1f3c",
-      display: "flex",
-      flexDirection: "column",
-      overflow: "hidden",
-      flexShrink: 0,
-      transition: "width .2s, min-width .2s",
-      zIndex: 50,
-      position: "relative",
-      boxShadow: "2px 0 10px rgba(0,0,0,.15)"
-    }}>
+    <aside
+      id="sidebar"
+      className={`sidebar-root ${mobileOpen ? "mob-open" : ""} ${collapsed ? "collapsed" : ""}`}
+      style={{
+        width: collapsed ? 64 : 250,
+        minWidth: collapsed ? 64 : 250,
+        height: "100vh",
+        background: "#0d1f3c",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        flexShrink: 0,
+        transition: "width .2s, min-width .2s",
+        zIndex: 50,
+        position: "relative",
+        boxShadow: "2px 0 10px rgba(0,0,0,.15)"
+      }}
+    >
       {/* Brand Header */}
-      <Link href="/dashboard" style={{
-        display: "flex", alignItems: "center", gap: 12,
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "16px 14px", borderBottom: "1px solid rgba(255,255,255,.08)",
-        flexShrink: 0, minHeight: 62, textDecoration: "none"
+        flexShrink: 0, minHeight: 62
       }}>
-        <div style={{
-          width: 36, height: 36, background: "#f97316", borderRadius: 10,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          flexShrink: 0, boxShadow: "0 2px 8px rgba(249,115,22,.4)"
+        <Link href="/dashboard" onClick={onClose} style={{
+          display: "flex", alignItems: "center", gap: 12,
+          textDecoration: "none", flex: 1, overflow: "hidden"
         }}>
-          <Flame size={20} color="#fff" />
-        </div>
-        {!collapsed && (
-          <div style={{ overflow: "hidden" }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", whiteSpace: "nowrap", letterSpacing: "-.2px" }}>
-              Bachan Gas
-            </div>
-            <div style={{ fontSize: 10.5, color: "#94a3b8", whiteSpace: "nowrap", marginTop: 1, fontWeight: 500 }}>
-              Enterprise LPG ERP
-            </div>
+          <div style={{
+            width: 36, height: 36, background: "#f97316", borderRadius: 10,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0, boxShadow: "0 2px 8px rgba(249,115,22,.4)"
+          }}>
+            <Flame size={20} color="#fff" />
           </div>
-        )}
-      </Link>
+          {!collapsed && (
+            <div style={{ overflow: "hidden" }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", whiteSpace: "nowrap", letterSpacing: "-.2px" }}>
+                Bachan Gas
+              </div>
+              <div style={{ fontSize: 10.5, color: "#94a3b8", whiteSpace: "nowrap", marginTop: 1, fontWeight: 500 }}>
+                Enterprise LPG ERP
+              </div>
+            </div>
+          )}
+        </Link>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mob-close-btn"
+          aria-label="Close navigation"
+          title="Close Menu"
+          style={{
+            width: 32, height: 32, borderRadius: 8,
+            alignItems: "center", justifyContent: "center",
+            color: "#94a3b8", background: "rgba(255,255,255,.08)",
+            border: "none", cursor: "pointer", flexShrink: 0,
+            marginLeft: 8, display: "none"
+          }}
+        >
+          <X size={18} />
+        </button>
+      </div>
 
       {/* Navigation List */}
       <nav style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "12px 8px" }}
