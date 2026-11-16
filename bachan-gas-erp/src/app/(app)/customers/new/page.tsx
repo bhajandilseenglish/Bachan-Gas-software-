@@ -46,6 +46,9 @@ export default function NewCustomerPage() {
         }
 
         // Always save to centralized persistent store
+        const openingReceivable = parseFloat((fd.get("opening_receivable") as string) || "0") || 0;
+        const creditLimitVal = parseFloat((fd.get("credit_limit") as string) || "0") || null;
+
         const newCust = useERPStore.getState().addCustomer({
           name,
           business: (fd.get("business_name") as string) || name,
@@ -55,15 +58,23 @@ export default function NewCustomerPage() {
           mobile,
           alt_mobile: (fd.get("alternate_mobile") as string) || "",
           email: (fd.get("email") as string) || "",
-          gst: (fd.get("gstin") as string) || "",
-          city: (fd.get("city") as string) || "Gwalior",
-          area: (fd.get("billing_address") as string) || "Central",
-          state: "Madhya Pradesh",
-          pin: (fd.get("pincode") as string) || "474001",
-          credit_limit: parseFloat((fd.get("credit_limit") as string) || "0") || 0,
-          payment_terms: `${(fd.get("payment_terms_days") as string) || "15"} days`,
+          gst: (fd.get("gst_number") as string) || "",
+          city: (fd.get("city") as string) || "Ludhiana",
+          area: (fd.get("area") as string) || (fd.get("billing_address") as string) || "Central",
+          state: (fd.get("state") as string) || "Punjab",
+          pin: (fd.get("pin_code") as string) || "141003",
+          credit_limit: creditLimitVal,
+          payment_terms: (fd.get("payment_terms") as string) || "Net 15 Days",
           status: "active",
         });
+
+        // If opening balance was specified, set outstanding
+        if (openingReceivable > 0) {
+          useERPStore.getState().updateCustomer(newCust.id, {
+            outstanding: openingReceivable,
+            is_financial_configured: true,
+          });
+        }
 
         setSuccess(`Customer ${newCust.name} created successfully! Redirecting...`);
         setTimeout(() => {
@@ -82,14 +93,12 @@ export default function NewCustomerPage() {
         <p className="page-sub">Fill in the customer details. Fields marked * are required.</p>
       </div>
 
-      {!isConfigured && (
-        <div style={{ background: "#fef3c7", border: "1.5px solid #fde68a", borderRadius: 12, padding: 16, marginBottom: 20 }}>
-          <strong style={{ color: "#92400e" }}>⚠️ Database not connected.</strong>
-          <span style={{ color: "#78350f", marginLeft: 8 }}>
-            Add your Supabase credentials to <code>.env.local</code> to save data.
-          </span>
+      {!isConfigured ? (
+        <div style={{ background: "#f0fdf4", border: "1.5px solid #bbf7d0", borderRadius: 12, padding: 14, marginBottom: 20, fontSize: 13, color: "#166534", display: "flex", alignItems: "center", gap: 8 }}>
+          <strong style={{ color: "#15803d" }}>✓ Offline & Local Register Active</strong>
+          <span>— Customer account will be immediately saved, indexed, and available across all modules.</span>
         </div>
-      )}
+      ) : null}
 
       {error && (
         <div style={{ background: "#fee2e2", border: "1.5px solid #fca5a5", borderRadius: 10, padding: 14, marginBottom: 16, color: "#b91c1c", fontSize: 13 }}>
@@ -149,12 +158,12 @@ export default function NewCustomerPage() {
           <Field label="Billing Address" name="billing_address" placeholder="Full billing address" />
           <Field label="Delivery Address" name="delivery_address" placeholder="Full delivery address (if different)" />
           <Row>
-            <Field label="City" name="city" placeholder="City" />
-            <Field label="Area / Locality" name="area" placeholder="Area or locality" />
+            <Field label="City" name="city" defaultValue="Ludhiana" placeholder="Ludhiana" />
+            <Field label="Area / Locality" name="area" placeholder="e.g. Focal Point, G.T. Road" />
           </Row>
           <Row>
-            <Field label="State" name="state" defaultValue="Rajasthan" />
-            <Field label="PIN Code" name="pin_code" placeholder="302001" />
+            <Field label="State" name="state" defaultValue="Punjab" />
+            <Field label="PIN Code" name="pin_code" defaultValue="141003" placeholder="141003" />
           </Row>
         </Section>
 

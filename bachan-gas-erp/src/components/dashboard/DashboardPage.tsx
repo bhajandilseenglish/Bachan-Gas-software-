@@ -105,11 +105,21 @@ export default function DashboardPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const { customers, orders, deliveries, invoices, payments, settings } = useERPStore();
+  const {
+    customers,
+    orders,
+    deliveries,
+    invoices,
+    payments,
+    settings,
+    missedOrderAlerts,
+    evaluateInactivityAlerts
+  } = useERPStore();
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    evaluateInactivityAlerts();
+  }, [evaluateInactivityAlerts]);
 
   const refresh = () => {
     setRefreshing(true);
@@ -206,6 +216,91 @@ export default function DashboardPage() {
             + New Supply Order
           </Link>
         </div>
+      </div>
+
+      {/* ── Customers Missing Expected Orders Alert Section ── */}
+      <div style={{
+        background: "#fff", border: "1.5px solid #fecaca", borderRadius: 12,
+        boxShadow: "0 4px 14px rgba(220,38,38,.08)", overflow: "hidden"
+      }}>
+        <div style={{
+          padding: "16px 20px", background: "#fef2f2", borderBottom: "1px solid #fee2e2",
+          display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#dc2626" }} />
+            <span style={{ fontSize: 14, fontWeight: 800, color: "#991b1b" }}>
+              Customers Missing Expected Orders (Inactivity Monitoring)
+            </span>
+            <span style={{
+              background: "#dc2626", color: "#fff", fontSize: 11, fontWeight: 800,
+              padding: "2px 8px", borderRadius: 100
+            }}>
+              {missedOrderAlerts.filter(a => a.status === "active").length} CRITICAL
+            </span>
+          </div>
+          <Link
+            href="/customers/alerts"
+            style={{ fontSize: 12, fontWeight: 700, color: "#dc2626", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}
+          >
+            Open Complete Alert Hub & Follow-up Logs →
+          </Link>
+        </div>
+
+        {missedOrderAlerts.filter(a => a.status === "active").length === 0 ? (
+          <div style={{ padding: "24px 20px", textAlign: "center", color: "#16a34a", fontSize: 13, fontWeight: 600 }}>
+            ✓ All commercial accounts with active order frequencies are ordering within expected cutoffs.
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                  {["Alert Status", "Customer", "Contact Mobile", "Expected Date", "Days Overdue", "Last Order Qty", "Quick Action"].map(h => (
+                    <th key={h} style={{ padding: "9px 16px", textAlign: "left", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {missedOrderAlerts.filter(a => a.status === "active").slice(0, 5).map(a => (
+                  <tr key={a.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ padding: "10px 16px" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 100, fontSize: 10.5, fontWeight: 800, background: "#fee2e2", color: "#b91c1c" }}>
+                        <AlertTriangle size={11} /> MISSED ORDER
+                      </span>
+                    </td>
+                    <td style={{ padding: "10px 16px" }}>
+                      <Link href={`/customers/${a.customerId}`} style={{ fontWeight: 700, fontSize: 13, color: "#1e293b", textDecoration: "none" }}>
+                        {a.customerName}
+                      </Link>
+                      <div style={{ fontSize: 11, color: "#64748b", fontFamily: "monospace" }}>{a.customerCode}</div>
+                    </td>
+                    <td style={{ padding: "10px 16px", fontSize: 12.5, fontWeight: 600 }}>
+                      {a.mobile}
+                    </td>
+                    <td style={{ padding: "10px 16px", fontSize: 12.5, fontWeight: 700, color: "#dc2626" }}>
+                      {a.expectedOrderDate}
+                    </td>
+                    <td style={{ padding: "10px 16px", fontSize: 13, fontWeight: 800, color: "#dc2626" }}>
+                      {a.daysOverdue} days
+                    </td>
+                    <td style={{ padding: "10px 16px", fontSize: 12.5, fontWeight: 700 }}>
+                      {a.lastOrderedQty} units
+                    </td>
+                    <td style={{ padding: "10px 16px" }}>
+                      <Link
+                        href={`/customers/alerts`}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 6, fontSize: 11.5, fontWeight: 700, background: "#1e3a8a", color: "#fff", textDecoration: "none" }}
+                      >
+                        Follow-up
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* ── Financial KPIs ── */}

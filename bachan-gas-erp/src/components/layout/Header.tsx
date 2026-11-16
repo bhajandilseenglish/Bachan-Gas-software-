@@ -23,7 +23,8 @@ export default function Header({ onMenu, onToggle, collapsed }: Props) {
   const dropRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  const { customers, orders, deliveries, resetToSeed } = useERPStore();
+  const { customers, orders, deliveries, currentUserRole, setCurrentUserRole, missedOrderAlerts, resetToSeed } = useERPStore();
+  const activeAlerts = missedOrderAlerts.filter(a => a.status === "active").length;
 
   const toggleDark = () => {
     setDark(p => !p);
@@ -381,6 +382,34 @@ export default function Header({ onMenu, onToggle, collapsed }: Props) {
         )}
       </div>
 
+      {/* Role Switcher Pill */}
+      <div style={{ display: "flex", alignItems: "center", background: "#f1f5f9", borderRadius: 20, padding: "2px 4px", border: "1px solid #cbd5e1" }}>
+        <button
+          onClick={() => setCurrentUserRole("admin")}
+          style={{
+            padding: "4px 10px", borderRadius: 16, border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer",
+            background: currentUserRole === "admin" ? "#1e3a8a" : "transparent",
+            color: currentUserRole === "admin" ? "#fff" : "#64748b",
+            transition: "all .15s"
+          }}
+          title="Switch to Administrator view"
+        >
+          Admin
+        </button>
+        <button
+          onClick={() => setCurrentUserRole("staff")}
+          style={{
+            padding: "4px 10px", borderRadius: 16, border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer",
+            background: currentUserRole === "staff" ? "#f97316" : "transparent",
+            color: currentUserRole === "staff" ? "#fff" : "#64748b",
+            transition: "all .15s"
+          }}
+          title="Switch to Staff view (restricted permissions)"
+        >
+          Staff
+        </button>
+      </div>
+
       {/* Notifications bell */}
       <div style={{ position: "relative" }}>
         <button
@@ -396,10 +425,10 @@ export default function Header({ onMenu, onToggle, collapsed }: Props) {
           onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
         >
           <Bell size={17} />
-          {(pendingDispatches > 0 || pendingDeliveries > 0) && (
+          {(pendingDispatches > 0 || pendingDeliveries > 0 || activeAlerts > 0) && (
             <span style={{
-              position: "absolute", top: 7, right: 7, width: 7, height: 7,
-              background: "#f97316", borderRadius: "50%",
+              position: "absolute", top: 7, right: 7, width: 8, height: 8,
+              background: activeAlerts > 0 ? "#dc2626" : "#f97316", borderRadius: "50%",
               border: "1.5px solid #fff",
             }} />
           )}
@@ -407,12 +436,17 @@ export default function Header({ onMenu, onToggle, collapsed }: Props) {
 
         {showNotif && (
           <div style={{
-            position: "absolute", top: 44, right: 0, width: 300, background: "#fff",
+            position: "absolute", top: 44, right: 0, width: 310, background: "#fff",
             border: "1px solid #e2e8f0", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,.12)",
             zIndex: 200, padding: 14
           }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#1e293b", marginBottom: 10 }}>Operational Alerts</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#1e293b", marginBottom: 10 }}>Operational & Inactivity Alerts</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12 }}>
+              {activeAlerts > 0 && (
+                <Link href="/customers/alerts" onClick={() => setShowNotif(false)} style={{ color: "#991b1b", textDecoration: "none", background: "#fee2e2", padding: "8px 10px", borderRadius: 6, fontWeight: 700 }}>
+                  🚨 {activeAlerts} customers missed expected orders!
+                </Link>
+              )}
               <Link href="/orders?status=pending_dispatch" onClick={() => setShowNotif(false)} style={{ color: "#b45309", textDecoration: "none", background: "#fffbeb", padding: "8px 10px", borderRadius: 6 }}>
                 ⏳ {pendingDispatches} orders pending dispatch
               </Link>

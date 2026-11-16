@@ -48,11 +48,13 @@ export default function PaymentsPage() {
 
     startTransition(() => {
       try {
+        const mappedMethod: "Cash" | "UPI" | "Bank Transfer" | "Cheque" | "Other" =
+          method.includes("Cash") ? "Cash" : method.includes("UPI") ? "UPI" : method.includes("Cheque") ? "Cheque" : "Bank Transfer";
         const rcpt = recordPayment({
           customerId: selectedCustId,
           amount: amt,
           date: payDate,
-          method,
+          method: mappedMethod,
           ref: refNum,
         });
         setMsg({ type: "success", text: `Receipt ${rcpt.num} recorded successfully!` });

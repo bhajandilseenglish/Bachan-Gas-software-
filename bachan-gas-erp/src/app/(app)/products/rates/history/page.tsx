@@ -8,7 +8,7 @@ const card = (s?: React.CSSProperties): React.CSSProperties => ({
   borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,.06)", ...s
 });
 
-export default function RateHistoryPage() {
+export default function CustomerRateHistoryPage() {
   const { auditLogs } = useERPStore();
   const [search, setSearch] = useState("");
 
@@ -21,16 +21,49 @@ export default function RateHistoryPage() {
     r.user.toLowerCase().includes(search.toLowerCase())
   );
 
+  const handleExportCSV = () => {
+    const headers = ["Timestamp", "Target Customer / Resource", "Rate Adjustment Details", "Authorized By", "IP Address"];
+    const rows = filtered.map(r => [
+      `"${r.timestamp}"`,
+      `"${r.resource}"`,
+      `"${(r.details || "").replace(/"/g, '""')}"`,
+      `"${r.user}"`,
+      r.ip,
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Bachan_Gas_Customer_Rate_History_${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 1600 }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: "#1e293b", letterSpacing: "-.3px" }}>Rate Change Audit Log</h1>
-          <p style={{ fontSize: 13, color: "#64748b", marginTop: 3 }}>
-            Immutable historical record of cylinder product rate modifications and authorized adjustments
+          <h1 style={{ fontSize: 20, fontWeight: 800, color: "#1e293b", letterSpacing: "-.3px", margin: 0 }}>
+            Customer Rate History & Audit Trail
+          </h1>
+          <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0" }}>
+            Immutable historical record of commercial cylinder customer rate modifications and authorized adjustments
           </p>
         </div>
+        {filtered.length > 0 && (
+          <button
+            onClick={handleExportCSV}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px",
+              borderRadius: 8, fontSize: 12.5, fontWeight: 600, background: "#f1f5f9",
+              color: "#1e293b", border: "1px solid #cbd5e1", cursor: "pointer"
+            }}
+          >
+            <Download size={14} /> Export History (CSV)
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -48,9 +81,9 @@ export default function RateHistoryPage() {
               <tr>
                 <td colSpan={5} style={{ padding: 40, textAlign: "center", color: "#64748b", fontSize: 13 }}>
                   <History size={36} color="#94a3b8" style={{ margin: "0 auto 8px" }} />
-                  <div style={{ fontWeight: 700, color: "#334155" }}>No Rate Revisions Recorded Yet</div>
+                  <div style={{ fontWeight: 700, color: "#334155" }}>No Customer Rate Revisions Recorded Yet</div>
                   <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
-                    Authorized contract rate approvals and price revisions will appear here automatically.
+                    Authorized customer rate approvals and price revisions will appear here automatically.
                   </div>
                 </td>
               </tr>

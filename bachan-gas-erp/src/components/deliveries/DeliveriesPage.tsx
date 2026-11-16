@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Truck, CheckCircle2, Clock, Package, Download, Plus, Check,
-  User, AlertCircle, X, Eye, ArrowRight
+  User, AlertCircle, X, Eye, ArrowRight, RotateCcw, ShieldAlert
 } from "lucide-react";
-import { useERPStore, Delivery } from "@/lib/store";
+import { useERPStore, Delivery, CylinderExchangeRecord } from "@/lib/store";
 
 const STATUS_CONFIG: Record<string, { bg: string; color: string; label: string }> = {
   pending:    { bg: "#fef3c7", color: "#92400e", label: "Pending" },
@@ -23,12 +23,29 @@ const card = (s?: React.CSSProperties): React.CSSProperties => ({
 export default function DeliveriesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { deliveries, orders, customers, confirmDelivery } = useERPStore();
+  const {
+    deliveries,
+    orders,
+    customers,
+    cylinderExchangeLedger,
+    confirmDelivery,
+    recordEmptyReturn,
+    currentUserRole
+  } = useERPStore();
+
+  const [mainTab, setMainTab] = useState<"history" | "received" | "pending">(
+    (searchParams.get("tab") as any) || "history"
+  );
   const [filter, setFilter] = useState(searchParams.get("status") || "all");
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    setFilter(searchParams.get("status") || "all");
+    const qTab = searchParams.get("tab");
+    if (qTab === "received" || qTab === "pending" || qTab === "history") {
+      setMainTab(qTab);
+    }
+    const qStatus = searchParams.get("status");
+    if (qStatus) setFilter(qStatus);
   }, [searchParams]);
 
   // Confirm delivery modal
@@ -38,7 +55,16 @@ export default function DeliveriesPage() {
   const [notes, setNotes] = useState("");
   const [confirmSuccess, setConfirmSuccess] = useState("");
 
-  const filtered = useMemo(() => {
+  // Standalone Empty Return Modal
+  const [showEmptyReturnModal, setShowEmptyReturnModal] = useState(false);
+  const [returnCustId, setReturnCustId] = useState(customers[0]?.id || "");
+  const [returnProdName, setReturnProdName] = useState("47.5kg LOT");
+  const [returnQty, setReturnQty] = useState(1);
+  const [returnRef, setReturnRef] = useState("");
+  const [returnRemarks, setReturnRemarks] = useState("");
+  const [returnSuccess, setReturnSuccess] = useState("");
+
+  const filteredDeliveries = useMemo(() => {
     return deliveries.filter(d => {
       const matchFilter = filter === "all" || d.status === filter;
       const matchSearch =
@@ -60,6 +86,11 @@ export default function DeliveriesPage() {
     .filter(d => d.status === "delivered")
     .reduce((s, d) => s + d.qty, 0);
 
+  // Empty cylinders metrics
+  const totalEmptiesReturned = cylinderExchangeLedger.reduce((s, e) => s + (e.emptyReceived || 0), 0);
+  const customersWithPendingEmpties = customers.filter(c => (c.empty_cylinders_pending || 0) > 0);
+  const totalEmptiesPending = customers.reduce((s, c) => s + (c.empty_cylinders_pending || 0), 0);
+
   const handleOpenConfirm = (d: Delivery) => {
     setConfirmModalDelivery(d);
     setReceiverName(d.customerName);
@@ -72,17 +103,42 @@ export default function DeliveriesPage() {
     e.preventDefault();
     if (!confirmModalDelivery) return;
 
-    confirmDelivery(confirmModalDelivery.id);
-    setConfirmSuccess(`Delivery ${confirmModalDelivery.num} confirmed! Invoice posted & ledger updated.`);
+    confirmDelivery(confirmModalDelivery.id, emptyCollected);
+    setConfirmSuccess(`Delivery ${confirmModalDelivery.num} confirmed! Empties credited & invoice posted.`);
     setTimeout(() => {
       setConfirmModalDelivery(null);
       setConfirmSuccess("");
     }, 1200);
   };
 
+  const handleEmptyReturnSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cust = customers.find(c => c.id === returnCustId);
+    if (!cust || returnQty <= 0) return;
+
+    recordEmptyReturn({
+      customerId: cust.id,
+      productName: returnProdName,
+      emptyReceived: returnQty,
+      returnDate: new Date().toISOString().split("T")[0],
+      refNum: returnRef,
+      remarks: returnRemarks,
+      recordedBy: currentUserRole === "admin" ? "Bachan Admin" : "Staff User",
+    });
+
+    setReturnSuccess(`Recorded ${returnQty} empty cylinders returned from ${cust.name}!`);
+    setTimeout(() => {
+      setShowEmptyReturnModal(false);
+      setReturnSuccess("");
+      setReturnQty(1);
+      setReturnRef("");
+      setReturnRemarks("");
+    }, 1200);
+  };
+
   const handleExportCSV = () => {
     const headers = ["Delivery #", "Order #", "Customer", "Product", "Qty", "Vehicle", "Driver", "Delivery Date", "Status"];
-    const rows = filtered.map(d => [
+    const rows = filteredDeliveries.map(d => [
       d.num,
       d.orderNum,
       `"${d.customerName}"`,
@@ -109,12 +165,24 @@ export default function DeliveriesPage() {
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: "#1e293b", letterSpacing: "-.3px" }}>Fleet & Cylinder Deliveries</h1>
-          <p style={{ fontSize: 13, color: "#64748b", marginTop: 3 }}>
-            {deliveredCount} completed · {pendingCount} pending supply · {totalCylindersDelivered} total cylinders delivered
+          <h1 style={{ fontSize: 20, fontWeight: 800, color: "#1e293b", letterSpacing: "-.3px", margin: 0 }}>
+            Fleet Deliveries & Empty Cylinder Tracking
+          </h1>
+          <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0" }}>
+            Track cylinder supplies, vehicle routes, empty cylinder returns, and customer exchange balances
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button
+            onClick={() => setShowEmptyReturnModal(true)}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px",
+              borderRadius: 8, fontSize: 12.5, fontWeight: 700, background: "#1e3a8a",
+              color: "#fff", border: "none", cursor: "pointer", boxShadow: "0 2px 6px rgba(30,58,138,.3)"
+            }}
+          >
+            <RotateCcw size={14} /> + Record Empty Received
+          </button>
           <button
             onClick={handleExportCSV}
             style={{
@@ -125,380 +193,464 @@ export default function DeliveriesPage() {
           >
             <Download size={14} /> Export CSV
           </button>
-          <Link
-            href="/orders/new"
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px",
-              borderRadius: 8, fontSize: 12.5, fontWeight: 600, background: "#f97316",
-              color: "#fff", textDecoration: "none", boxShadow: "0 2px 6px rgba(249,115,22,.3)"
-            }}
-          >
-            <Plus size={14} /> + New Supply Order
-          </Link>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }} className="stat-grid-4">
+      {/* Main Tabs (Delivery History vs Empty Received vs Empty Pending) */}
+      <div style={{ display: "flex", gap: 8, borderBottom: "1px solid #e2e8f0", paddingBottom: 10 }}>
+        <button
+          onClick={() => setMainTab("history")}
+          style={{
+            padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 700,
+            background: mainTab === "history" ? "#1e3a8a" : "#f1f5f9",
+            color: mainTab === "history" ? "#fff" : "#64748b",
+            border: "none", cursor: "pointer"
+          }}
+        >
+          Delivery History ({deliveries.length})
+        </button>
+        <button
+          onClick={() => setMainTab("received")}
+          style={{
+            padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 700,
+            background: mainTab === "received" ? "#1e3a8a" : "#f1f5f9",
+            color: mainTab === "received" ? "#fff" : "#64748b",
+            border: "none", cursor: "pointer"
+          }}
+        >
+          Empty Received ({cylinderExchangeLedger.length} Records)
+        </button>
+        <button
+          onClick={() => setMainTab("pending")}
+          style={{
+            padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 700,
+            background: mainTab === "pending" ? "#dc2626" : "#f1f5f9",
+            color: mainTab === "pending" ? "#fff" : "#64748b",
+            border: "none", cursor: "pointer"
+          }}
+        >
+          Empty Pending ({totalEmptiesPending} Cylinders)
+        </button>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="stat-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
         {[
-          { label: "Total Deliveries", val: deliveries.length, color: "#1e3a8a", Icon: Truck },
-          { label: "Delivered & Invoiced", val: deliveredCount, color: "#16a34a", Icon: CheckCircle2 },
-          { label: "Pending Supply", val: pendingCount, color: "#d97706", Icon: Clock },
-          { label: "Cylinders Delivered", val: `${totalCylindersDelivered} cyl`, color: "#f97316", Icon: Package },
-        ].map(s => (
-          <div key={s.label} style={{ ...card(), padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: s.color + "15", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <s.Icon size={18} color={s.color} />
+          { label: "Completed Deliveries", val: deliveredCount, color: "#16a34a", Icon: CheckCircle2 },
+          { label: "Pending Supply Dispatch", val: pendingCount, color: "#d97706", Icon: Clock },
+          { label: "Total Cylinders Delivered", val: `${totalCylindersDelivered} units`, color: "#1e3a8a", Icon: Package },
+          { label: "Empty Cylinders Pending", val: `${totalEmptiesPending} units`, color: totalEmptiesPending > 0 ? "#dc2626" : "#16a34a", Icon: RotateCcw },
+        ].map((s, i) => (
+          <div key={i} style={{ ...card(), padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: s.color + "15", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <s.Icon size={20} color={s.color} />
             </div>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 18, fontWeight: 900, color: s.color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.val}</div>
-              <div style={{ fontSize: 11, color: "#64748b", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.label}</div>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: s.color }}>{s.val}</div>
+              <div style={{ fontSize: 11.5, color: "#64748b", fontWeight: 600 }}>{s.label}</div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Filter Tabs */}
-      <div className="customers-filter-bar" style={{ ...card(), padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <div className="filter-selects-row" style={{ display: "flex", gap: 6, overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 2 }}>
-          {[
-            { id: "all", label: `All (${deliveries.length})` },
-            { id: "pending", label: `Pending (${pendingCount})` },
-            { id: "in_transit", label: `In Transit (${inTransitCount})` },
-            { id: "delivered", label: `Delivered (${deliveredCount})` },
-          ].map(t => (
-            <button
-              key={t.id}
-              onClick={() => setFilter(t.id)}
-              style={{
-                flex: "0 0 auto",
-                padding: "7px 13px", borderRadius: 8, fontSize: 12, fontWeight: 600,
-                background: filter === t.id ? "#1e3a8a" : "#f1f5f9",
-                color: filter === t.id ? "#fff" : "#475569",
-                border: "none", cursor: "pointer", transition: "all .15s", whiteSpace: "nowrap"
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+      {/* TAB 1: DELIVERY HISTORY */}
+      {mainTab === "history" && (
+        <>
+          <div className="customers-filter-bar" style={{ ...card(), padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <div className="filter-selects-row" style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+              {[
+                { id: "all", label: `All (${deliveries.length})` },
+                { id: "pending", label: `Pending (${pendingCount})` },
+                { id: "in_transit", label: `In Transit (${inTransitCount})` },
+                { id: "delivered", label: `Delivered (${deliveredCount})` },
+              ].map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setFilter(t.id)}
+                  style={{
+                    padding: "7px 13px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                    background: filter === t.id ? "#1e3a8a" : "#f1f5f9",
+                    color: filter === t.id ? "#fff" : "#475569",
+                    border: "none", cursor: "pointer", whiteSpace: "nowrap"
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
 
-        <div className="filter-search-box" style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "7px 12px", minWidth: 220, flex: 1 }}>
-          <Clock size={14} color="#94a3b8" />
-          <input
-            placeholder="Search delivery, vehicle, driver..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ background: "transparent", border: "none", outline: "none", fontSize: 12.5, color: "#1e293b", width: "100%" }}
-          />
-          {search && (
-            <button onClick={() => setSearch("")} style={{ color: "#94a3b8", cursor: "pointer", background: "none", border: "none" }}>
-              <X size={13} />
-            </button>
-          )}
-        </div>
-      </div>
+            <div className="filter-search-box" style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "7px 12px", minWidth: 220, flex: 1 }}>
+              <Clock size={14} color="#94a3b8" />
+              <input
+                placeholder="Search delivery, vehicle, driver..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{ background: "transparent", border: "none", outline: "none", fontSize: 12.5, color: "#1e293b", width: "100%" }}
+              />
+              {search && (
+                <button onClick={() => setSearch("")} style={{ color: "#94a3b8", cursor: "pointer", background: "none", border: "none" }}>
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          </div>
 
-      {/* Desktop Table View */}
-      <div className="desktop-only-table" style={{ ...card(), overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
+          <div className="desktop-only-table" style={{ ...card(), overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0" }}>
+                  {["Delivery #", "Order #", "Customer", "Cylinder / Product", "Qty", "Vehicle & Driver", "Date", "Status", "Actions"].map(h => (
+                    <th key={h} style={{ padding: "11px 16px", textAlign: "left", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "#64748b" }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDeliveries.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} style={{ textAlign: "center", padding: "40px 20px", color: "#64748b" }}>
+                      No delivery records found matching current filter.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredDeliveries.map(d => {
+                    const s = STATUS_CONFIG[d.status] || STATUS_CONFIG.pending;
+                    return (
+                      <tr key={d.id} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                        <td style={{ padding: "13px 16px", fontFamily: "monospace", fontWeight: 700, color: "#1e3a8a", fontSize: 12.5 }}>
+                          {d.num}
+                        </td>
+                        <td style={{ padding: "13px 16px" }}>
+                          <Link href={`/orders/${d.orderId}`} style={{ fontFamily: "monospace", color: "#f97316", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
+                            {d.orderNum}
+                          </Link>
+                        </td>
+                        <td style={{ padding: "13px 16px" }}>
+                          <Link href={`/customers/${d.customerId}`} style={{ fontWeight: 600, fontSize: 13, color: "#1e293b", textDecoration: "none", display: "block" }}>
+                            {d.customerName}
+                          </Link>
+                          <div style={{ fontSize: 11, color: "#64748b" }}>{d.customerCode}</div>
+                        </td>
+                        <td style={{ padding: "13px 16px", color: "#475569", fontSize: 12.5 }}>
+                          {d.product}
+                        </td>
+                        <td style={{ padding: "13px 16px", fontWeight: 700, fontSize: 13, color: "#1e293b" }}>
+                          {d.qty} units
+                        </td>
+                        <td style={{ padding: "13px 16px", fontSize: 12.5 }}>
+                          <div style={{ fontWeight: 600, color: "#1e293b" }}>{d.vehicle || "—"}</div>
+                          <div style={{ fontSize: 11, color: "#64748b" }}>{d.driver || "—"}</div>
+                        </td>
+                        <td style={{ padding: "13px 16px", fontSize: 12, color: "#64748b" }}>
+                          {d.date}
+                        </td>
+                        <td style={{ padding: "13px 16px" }}>
+                          <span style={{ padding: "3px 9px", borderRadius: 100, fontSize: 10.5, fontWeight: 700, background: s.bg, color: s.color, textTransform: "uppercase" }}>
+                            {s.label}
+                          </span>
+                        </td>
+                        <td style={{ padding: "13px 16px" }}>
+                          {d.status !== "delivered" ? (
+                            <button
+                              onClick={() => handleOpenConfirm(d)}
+                              style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 6, fontSize: 11.5, fontWeight: 700, background: "#dcfce7", color: "#15803d", border: "none", cursor: "pointer" }}
+                            >
+                              <Check size={13} /> Confirm
+                            </button>
+                          ) : (
+                            <span style={{ color: "#16a34a", fontSize: 12, fontWeight: 600 }}>✓ Delivered</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {/* TAB 2: EMPTY RECEIVED */}
+      {mainTab === "received" && (
+        <div style={{ ...card(), overflow: "hidden" }}>
+          <div style={{ padding: "14px 18px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontWeight: 700, fontSize: 13, color: "#1e293b" }}>Customer Empty Cylinders Exchange Ledger</span>
+            <span style={{ fontSize: 12, color: "#64748b" }}>Total Empties Returned: <strong>{totalEmptiesReturned} units</strong></span>
+          </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0" }}>
-                {["Delivery #", "Order #", "Customer", "Cylinder / Product", "Qty", "Vehicle & Driver", "Date", "Status", "Actions"].map(h => (
-                  <th key={h} style={{ padding: "11px 16px", textAlign: "left", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "#64748b", whiteSpace: "nowrap" }}>
-                    {h}
-                  </th>
+                {["Exchange Ref", "Customer Name", "Product Type", "Filled Delivered", "Empty Received", "Closing Pending", "Return Date", "Recorded By", "Remarks"].map(h => (
+                  <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "#64748b" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {cylinderExchangeLedger.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ textAlign: "center", padding: "40px 20px", color: "#64748b" }}>
-                    No delivery records found matching current filter.
+                  <td colSpan={9} style={{ padding: 40, textAlign: "center", color: "#64748b", fontSize: 13 }}>
+                    No empty cylinder receipts logged yet. When deliveries are completed or standalone empties collected, records accumulate here.
                   </td>
                 </tr>
               ) : (
-                filtered.map(d => {
-                  const s = STATUS_CONFIG[d.status] || STATUS_CONFIG.pending;
-                  return (
-                    <tr
-                      key={d.id}
-                      style={{ borderBottom: "1px solid #e2e8f0", transition: "background .12s" }}
-                      onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
-                      onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                    >
-                      <td style={{ padding: "13px 16px" }}>
-                        <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#1e3a8a", fontSize: 12.5 }}>
-                          {d.num}
-                        </span>
-                      </td>
-                      <td style={{ padding: "13px 16px" }}>
-                        <Link href={`/orders/${d.orderId}`} style={{ fontFamily: "monospace", color: "#f97316", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
-                          {d.orderNum}
-                        </Link>
-                      </td>
-                      <td style={{ padding: "13px 16px" }}>
-                        <Link href={`/customers/${d.customerId}`} style={{ fontWeight: 600, fontSize: 13, color: "#1e293b", textDecoration: "none", display: "block" }}>
-                          {d.customerName}
-                        </Link>
-                        <div style={{ fontSize: 11, color: "#64748b" }}>{d.customerCode}</div>
-                      </td>
-                      <td style={{ padding: "13px 16px", color: "#475569", fontSize: 12.5 }}>
-                        {d.product}
-                      </td>
-                      <td style={{ padding: "13px 16px", fontWeight: 800, fontSize: 13, color: "#1e293b" }}>
-                        {d.qty} cyl
-                      </td>
-                      <td style={{ padding: "13px 16px", fontSize: 12, color: "#475569" }}>
-                        {d.vehicle ? (
-                          <div>
-                            <strong>{d.vehicle}</strong>
-                            {d.driver && <div style={{ fontSize: 11, color: "#64748b" }}>{d.driver}</div>}
-                          </div>
-                        ) : (
-                          <span style={{ color: "#94a3b8" }}>Unassigned</span>
-                        )}
-                      </td>
-                      <td style={{ padding: "13px 16px", fontSize: 12, color: "#64748b", whiteSpace: "nowrap" }}>
-                        {d.date}
-                      </td>
-                      <td style={{ padding: "13px 16px" }}>
-                        <span style={{
-                          display: "inline-flex", alignItems: "center", padding: "3px 10px",
-                          borderRadius: 100, fontSize: 10, fontWeight: 700, textTransform: "uppercase",
-                          letterSpacing: ".04em", background: s.bg, color: s.color, whiteSpace: "nowrap"
-                        }}>
-                          {s.label}
-                        </span>
-                      </td>
-                      <td style={{ padding: "13px 16px", whiteSpace: "nowrap" }}>
-                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          <Link
-                            href={`/customers/${d.customerId}`}
-                            style={{
-                              padding: "5px 9px", borderRadius: 6, fontSize: 11.5,
-                              fontWeight: 600, background: "#f0f4fa", color: "#1e3a8a",
-                              textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4
-                            }}
-                            title="View Customer Profile"
-                          >
-                            <User size={13} /> Profile
-                          </Link>
-
-                          {d.status !== "delivered" && (
-                            <button
-                              onClick={() => handleOpenConfirm(d)}
-                              style={{
-                                padding: "5px 11px", borderRadius: 6, fontSize: 11.5,
-                                fontWeight: 700, background: "#16a34a", color: "#fff",
-                                border: "none", cursor: "pointer", display: "inline-flex",
-                                alignItems: "center", gap: 4, boxShadow: "0 1px 3px rgba(22,163,74,.3)"
-                              }}
-                              title="Confirm Delivery & Update Ledger"
-                            >
-                              <Check size={13} /> Confirm Delivery
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
+                cylinderExchangeLedger.map(e => (
+                  <tr key={e.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ padding: "12px 16px", fontFamily: "monospace", fontWeight: 700, color: "#1e3a8a", fontSize: 12 }}>
+                      {e.exchangeNum}
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <Link href={`/customers/${e.customerId}`} style={{ fontWeight: 700, color: "#1e293b", textDecoration: "none", fontSize: 13 }}>
+                        {e.customerName}
+                      </Link>
+                      <div style={{ fontSize: 11, color: "#64748b", fontFamily: "monospace" }}>{e.customerCode}</div>
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 12.5, color: "#475569" }}>
+                      {e.productName}
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 13 }}>
+                      {e.filledDelivered > 0 ? `${e.filledDelivered} units` : "—"}
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 800, color: "#16a34a" }}>
+                      {e.emptyReceived} units
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <span style={{ fontWeight: 800, color: e.emptyPending > 0 ? "#dc2626" : "#16a34a", fontSize: 13 }}>
+                        {e.emptyPending} pending
+                      </span>
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 12, color: "#64748b" }}>
+                      {e.returnDate}
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 12 }}>
+                      {e.recordedBy}
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 12, color: "#64748b" }}>
+                      {e.remarks || "—"}
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
-      </div>
+      )}
 
-      {/* Mobile Deliveries Cards View */}
-      <div className="mobile-only-cards" style={{ display: "none" }}>
-        {filtered.length === 0 ? (
-          <div style={{ ...card(), padding: 30, textAlign: "center", color: "#64748b" }}>
-            No delivery records found matching current filter.
+      {/* TAB 3: EMPTY PENDING REPORT */}
+      {mainTab === "pending" && (
+        <div style={{ ...card(), overflow: "hidden" }}>
+          <div style={{ padding: "14px 18px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontWeight: 700, fontSize: 13, color: "#dc2626" }}>Pending Empty Cylinders by Customer Account</span>
+            <span style={{ fontSize: 12, color: "#64748b" }}>{customersWithPendingEmpties.length} customers with unreturned empties</span>
           </div>
-        ) : (
-          filtered.map(d => {
-            const s = STATUS_CONFIG[d.status] || STATUS_CONFIG.pending;
-            return (
-              <div key={d.id} style={{
-                ...card(), padding: "12px 14px", display: "flex", flexDirection: "column", gap: 9,
-                borderLeft: `4px solid ${s.color}`
-              }}>
-                {/* Header: Delivery # + Status */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                  <span style={{ fontFamily: "monospace", fontWeight: 800, color: "#1e3a8a", fontSize: 13 }}>
-                    {d.num}
-                  </span>
-                  <span style={{
-                    padding: "2px 8px", borderRadius: 100, fontSize: 10, fontWeight: 700,
-                    textTransform: "uppercase", background: s.bg, color: s.color
-                  }}>
-                    {s.label}
-                  </span>
-                </div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0" }}>
+                {["Customer", "Consumer Code", "Mobile", "City / Area", "Filled Delivered", "Empties Returned", "Pending Cylinders (Warning)", "Actions"].map(h => (
+                  <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "#64748b" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {customersWithPendingEmpties.length === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ padding: 40, textAlign: "center", color: "#16a34a", fontSize: 13 }}>
+                    <CheckCircle2 size={36} color="#16a34a" style={{ margin: "0 auto 8px" }} />
+                    <div style={{ fontWeight: 700 }}>All Commercial Empty Cylinders Reconciled!</div>
+                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>Zero unreturned empty cylinders across all registered accounts.</div>
+                  </td>
+                </tr>
+              ) : (
+                customersWithPendingEmpties.map(c => (
+                  <tr key={c.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ padding: "12px 16px" }}>
+                      <Link href={`/customers/${c.id}`} style={{ fontWeight: 700, fontSize: 13, color: "#1e293b", textDecoration: "none" }}>
+                        {c.name}
+                      </Link>
+                    </td>
+                    <td style={{ padding: "12px 16px", fontFamily: "monospace", fontWeight: 700, color: "#1e3a8a", fontSize: 12 }}>
+                      {c.code}
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 12.5, color: "#64748b" }}>
+                      {c.mobile}
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 12.5 }}>
+                      {c.city} · {c.area}
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 13 }}>
+                      {c.total_filled_delivered || 0} units
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 13, color: "#16a34a", fontWeight: 700 }}>
+                      {c.total_empty_received || 0} units
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 10px", borderRadius: 100, fontSize: 12, fontWeight: 800, background: "#fee2e2", color: "#b91c1c" }}>
+                        <ShieldAlert size={14} /> {c.empty_cylinders_pending} PENDING
+                      </span>
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <button
+                        onClick={() => {
+                          setReturnCustId(c.id);
+                          setReturnQty(c.empty_cylinders_pending);
+                          setShowEmptyReturnModal(true);
+                        }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 700, background: "#1e3a8a", color: "#fff", border: "none", cursor: "pointer" }}
+                      >
+                        <RotateCcw size={12} /> Receive Empties
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-                {/* Customer & Order */}
-                <div>
-                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "#0d1f3c" }}>{d.customerName}</div>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Order #{d.orderNum} · {d.date}</div>
-                </div>
-
-                {/* Details grid */}
-                <div style={{
-                  display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6,
-                  padding: "8px 10px", background: "#f8fafc", borderRadius: 8, fontSize: 11
-                }}>
-                  <div>
-                    <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>CYLINDER</span>
-                    <span style={{ color: "#1e293b", fontWeight: 600 }}>{d.product}</span>
-                  </div>
-                  <div>
-                    <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>QUANTITY</span>
-                    <span style={{ fontWeight: 800, color: "#1e293b" }}>{d.qty} cylinders</span>
-                  </div>
-                  <div>
-                    <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>VEHICLE</span>
-                    <span style={{ color: "#1e293b", fontWeight: 600 }}>{d.vehicle || "PB-10-AR-8821"}</span>
-                  </div>
-                  <div>
-                    <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>DRIVER</span>
-                    <span style={{ color: "#1e293b", fontWeight: 600 }}>{d.driver || "Harpreet Singh"}</span>
-                  </div>
-                </div>
-
-                {/* Confirm button if pending */}
-                {d.status === "pending" && (
-                  <button
-                    onClick={() => setConfirmModalDelivery(d)}
-                    style={{
-                      width: "100%", padding: "8px", borderRadius: 7, fontSize: 12,
-                      fontWeight: 700, background: "#16a34a", color: "#fff", border: "none", cursor: "pointer",
-                      display: "flex", alignItems: "center", justifyContent: "center", gap: 6
-                    }}
-                  >
-                    <Check size={14} /> Confirm Delivery Completion
-                  </button>
-                )}
+      {/* Standalone Record Empty Return Modal */}
+      {showEmptyReturnModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(13,31,60,.55)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ ...card(), maxWidth: 480, width: "100%", padding: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <RotateCcw size={18} color="#1e3a8a" />
+                <h3 style={{ fontSize: 16, fontWeight: 800, color: "#1e293b", margin: 0 }}>Record Empty Cylinders Received</h3>
               </div>
-            );
-          })
-        )}
-      </div>
+              <button onClick={() => setShowEmptyReturnModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b" }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {returnSuccess && (
+              <div style={{ background: "#dcfce7", color: "#15803d", padding: 10, borderRadius: 8, fontSize: 13, marginBottom: 14, fontWeight: 600 }}>
+                ✓ {returnSuccess}
+              </div>
+            )}
+
+            <form onSubmit={handleEmptyReturnSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 4 }}>Customer Account *</label>
+                <select
+                  value={returnCustId}
+                  onChange={e => setReturnCustId(e.target.value)}
+                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, background: "#f8fafc", outline: "none" }}
+                >
+                  {customers.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.code}) — {c.empty_cylinders_pending || 0} Empties Pending
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 4 }}>Cylinder Category *</label>
+                  <select
+                    value={returnProdName}
+                    onChange={e => setReturnProdName(e.target.value)}
+                    style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, background: "#f8fafc", outline: "none" }}
+                  >
+                    <option value="47.5kg LOT">47.5kg LOT</option>
+                    <option value="47.5kg VOT">47.5kg VOT</option>
+                    <option value="425kg jumbo">425kg jumbo</option>
+                    <option value="19kg nano cut">19kg nano cut</option>
+                    <option value="19 kg extra tej">19 kg extra tej</option>
+                    <option value="19 kg normal">19 kg normal</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 4 }}>Empties Received *</label>
+                  <input
+                    type="number"
+                    min={1}
+                    required
+                    value={returnQty}
+                    onChange={e => setReturnQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 4 }}>Return Slip / Challan Reference #</label>
+                <input
+                  placeholder="e.g. RET-0921"
+                  value={returnRef}
+                  onChange={e => setReturnRef(e.target.value)}
+                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 4 }}>Remarks / Warehouse Condition</label>
+                <input
+                  placeholder="e.g. Collected by vehicle driver, valves inspected in order"
+                  value={returnRemarks}
+                  onChange={e => setReturnRemarks(e.target.value)}
+                  style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
+                <button type="button" onClick={() => setShowEmptyReturnModal(false)} style={{ padding: "8px 16px", borderRadius: 8, background: "#f1f5f9", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+                  Cancel
+                </button>
+                <button type="submit" style={{ padding: "8px 20px", borderRadius: 8, background: "#1e3a8a", color: "#fff", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+                  Credit Empty Return
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Confirm Delivery Modal */}
       {confirmModalDelivery && (
-        <div style={{
-          position: "fixed", inset: 0, background: "rgba(13,31,60,.55)", zIndex: 1000,
-          display: "flex", alignItems: "center", justifyContent: "center", padding: 20
-        }}>
-          <div style={{
-            background: "#fff", borderRadius: 14, width: "100%", maxWidth: 520,
-            boxShadow: "0 20px 40px rgba(0,0,0,.2)", overflow: "hidden"
-          }}>
-            <div style={{
-              padding: "16px 20px", borderBottom: "1px solid #e2e8f0",
-              display: "flex", alignItems: "center", justifyContent: "space-between", background: "#f8fafc"
-            }}>
-              <div>
-                <h3 style={{ fontSize: 15, fontWeight: 800, color: "#1e293b" }}>Confirm Cylinder Delivery</h3>
-                <div style={{ fontSize: 12, color: "#64748b" }}>
-                  {confirmModalDelivery.num} · Order #{confirmModalDelivery.orderNum}
-                </div>
-              </div>
-              <button
-                onClick={() => setConfirmModalDelivery(null)}
-                style={{ color: "#94a3b8", cursor: "pointer", background: "none", border: "none" }}
-              >
+        <div style={{ position: "fixed", inset: 0, background: "rgba(13,31,60,.55)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ ...card(), maxWidth: 460, width: "100%", padding: 24 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 800, color: "#1e293b", margin: 0 }}>Confirm Delivery #{confirmModalDelivery.num}</h3>
+              <button onClick={() => setConfirmModalDelivery(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b" }}>
                 <X size={18} />
               </button>
             </div>
 
             {confirmSuccess ? (
-              <div style={{ padding: 24, textAlign: "center", color: "#15803d", fontWeight: 700 }}>
-                ✅ {confirmSuccess}
+              <div style={{ background: "#dcfce7", color: "#15803d", padding: 12, borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
+                ✓ {confirmSuccess}
               </div>
             ) : (
-              <form onSubmit={handleConfirmSubmit} style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
-                <div style={{ background: "#f0f4fa", borderRadius: 8, padding: 12, fontSize: 13 }}>
-                  <div style={{ fontWeight: 700, color: "#1e3a8a" }}>{confirmModalDelivery.customerName}</div>
-                  <div style={{ color: "#475569", marginTop: 2 }}>
-                    Supplying: <strong>{confirmModalDelivery.qty} cylinders</strong> ({confirmModalDelivery.product})
-                  </div>
+              <form onSubmit={handleConfirmSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ background: "#f8fafc", padding: 12, borderRadius: 8, fontSize: 12.5 }}>
+                  <div>Customer: <strong>{confirmModalDelivery.customerName}</strong></div>
+                  <div>Product: <strong>{confirmModalDelivery.product}</strong> ({confirmModalDelivery.qty} units)</div>
+                  <div>Vehicle: {confirmModalDelivery.vehicle} · Driver: {confirmModalDelivery.driver}</div>
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 5 }}>
-                    Receiver Name / Authorized Person *
-                  </label>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 4 }}>Empty Cylinders Collected on Delivery</label>
                   <input
-                    required
-                    value={receiverName}
-                    onChange={e => setReceiverName(e.target.value)}
-                    style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13 }}
+                    type="number"
+                    min={0}
+                    value={emptyCollected}
+                    onChange={e => setEmptyCollected(parseInt(e.target.value, 10) || 0)}
+                    style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, outline: "none", boxSizing: "border-box" }}
                   />
+                  <span style={{ fontSize: 11, color: "#64748b", marginTop: 2, display: "block" }}>
+                    Full delivered: {confirmModalDelivery.qty} · Net exchange will update immediately.
+                  </span>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                  <div>
-                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 5 }}>
-                      Full Cylinders Delivered
-                    </label>
-                    <input
-                      disabled
-                      value={confirmModalDelivery.qty}
-                      style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13, background: "#f8fafc" }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 5 }}>
-                      Empty Cylinders Returned
-                    </label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={emptyCollected}
-                      onChange={e => setEmptyCollected(parseInt(e.target.value, 10) || 0)}
-                      style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13 }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 5 }}>
-                    Delivery Notes / OTP / POD Slip #
-                  </label>
-                  <input
-                    placeholder="e.g. Received in good order, POD #9921"
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13 }}
-                  />
-                </div>
-
-                <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, padding: 12, fontSize: 12, color: "#9a3412" }}>
-                  <strong>ERP Automation:</strong> Confirming this delivery will automatically:
-                  <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
-                    <li>Generate the posted Tax Invoice</li>
-                    <li>Debit customer account ledger and increase outstanding</li>
-                    <li>Update Customer&apos;s Last Supply Date and Quantity</li>
-                  </ul>
-                </div>
-
-                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
-                  <button
-                    type="button"
-                    onClick={() => setConfirmModalDelivery(null)}
-                    style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", cursor: "pointer", fontSize: 13, fontWeight: 600 }}
-                  >
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
+                  <button type="button" onClick={() => setConfirmModalDelivery(null)} style={{ padding: "8px 16px", borderRadius: 8, background: "#f1f5f9", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "#16a34a", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700 }}
-                  >
-                    ✓ Confirm Delivery & Post Invoice
+                  <button type="submit" style={{ padding: "8px 20px", borderRadius: 8, background: "#16a34a", color: "#fff", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+                    Confirm Delivery
                   </button>
                 </div>
               </form>

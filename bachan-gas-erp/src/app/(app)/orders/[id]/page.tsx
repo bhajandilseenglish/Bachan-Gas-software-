@@ -175,11 +175,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
                     <td style={{ padding: "12px 16px" }}>
                       <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{it.productName}</div>
-                      <div style={{ fontSize: 11, color: "#64748b" }}>SKU: {it.productCode} ({it.weight} kg LPG)</div>
+                      <div style={{ fontSize: 11, color: "#64748b" }}>SKU: {it.productCode}</div>
                     </td>
                     <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700 }}>{it.qty}</td>
                     <td style={{ padding: "12px 16px", fontSize: 13 }}>₹{it.unitRate.toLocaleString("en-IN")}</td>
-                    <td style={{ padding: "12px 16px", fontSize: 13 }}>{it.taxPct}%</td>
+                    <td style={{ padding: "12px 16px", fontSize: 13 }}>{it.taxPct || 18}%</td>
                     <td style={{ padding: "12px 16px", fontSize: 13 }}>₹{it.subtotal.toLocaleString("en-IN")}</td>
                     <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 800, color: "#1e3a8a" }}>₹{it.total.toLocaleString("en-IN")}</td>
                   </tr>
@@ -215,24 +215,24 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
           <div style={{ ...card(), padding: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: "#64748b", marginBottom: 12 }}>
-              Financial Summary
+              Financial Summary (18% GST)
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#64748b" }}>Cylinders:</span>
-                <strong>{o.totalQty} units ({o.totalKg} kg)</strong>
+                <span style={{ color: "#64748b" }}>Quantity:</span>
+                <strong>{o.totalQty} cylinders / units</strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#64748b" }}>Subtotal:</span>
+                <span style={{ color: "#64748b" }}>Taxable Subtotal:</span>
                 <span>₹{o.subtotal.toLocaleString("en-IN")}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#64748b" }}>GST Tax:</span>
-                <span>₹{o.taxAmt.toLocaleString("en-IN")}</span>
+                <span style={{ color: "#64748b" }}>Statutory GST (18%):</span>
+                <span style={{ color: "#f97316", fontWeight: 700 }}>₹{o.taxAmt.toLocaleString("en-IN")}</span>
               </div>
               <div style={{ height: 1, background: "#e2e8f0", margin: "4px 0" }} />
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 800, color: "#1e3a8a" }}>
-                <span>Total Amount:</span>
+                <span>Final Bill Amount:</span>
                 <span>₹{o.total.toLocaleString("en-IN")}</span>
               </div>
             </div>

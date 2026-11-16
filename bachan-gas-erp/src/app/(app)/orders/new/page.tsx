@@ -3,29 +3,33 @@ import { useState, useTransition, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useERPStore } from "@/lib/store";
 import { createOrder as createOrderSupabase } from "@/lib/actions";
-import { AlertTriangle, CheckCircle2, Plus, ShieldCheck, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Plus, ShieldCheck, X, ShieldAlert } from "lucide-react";
 
 function NewOrderForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preSelectedCustomerId = searchParams.get("customer_id") || searchParams.get("customerId") || "";
 
-  const { customers, products, customerRates, setCustomerRate, getApplicableRate, createOrder } = useERPStore();
+  const { customers, products, customerRates, currentUserRole, setCustomerRate, getApplicableRate, createOrder } = useERPStore();
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ type: "error" | "success"; text: string } | null>(null);
 
+  const activeProducts = products.filter(p => p.active);
+
   const [customerId, setCustomerId] = useState(preSelectedCustomerId || (customers[0]?.id || ""));
-  const [prodId, setProdId] = useState(products[0]?.id || "");
+  const [prodId, setProdId] = useState(activeProducts[0]?.id || "");
   const [qty, setQty] = useState(1);
   const [rate, setRate] = useState(0);
-  const [isContractRate, setIsContractRate] = useState(false);
+  const [isCustomerRate, setIsCustomerRate] = useState(false);
 
   // Quick Rate Modal
   const [showRateModal, setShowRateModal] = useState(false);
   const [modalAgreedRate, setModalAgreedRate] = useState("");
 
-  const prod = products.find(p => p.id === prodId) || products[0];
+  const prod = activeProducts.find(p => p.id === prodId) || activeProducts[0];
   const selectedCustomer = customers.find(c => c.id === customerId || c.code === customerId);
+
+  const isAdmin = currentUserRole === "admin";
 
   // Update rate whenever customer or product changes
   useEffect(() => {
@@ -33,22 +37,35 @@ function NewOrderForm() {
       const rateObj = getApplicableRate(customerId, prodId);
       if (rateObj.isConfigured) {
         setRate(rateObj.rate);
-        setIsContractRate(true);
+        setIsCustomerRate(true);
       } else {
         setRate(prod ? prod.rate : 0);
-        setIsContractRate(false);
+        setIsCustomerRate(false);
       }
     } else if (prod) {
       setRate(prod.rate);
-      setIsContractRate(false);
+      setIsCustomerRate(false);
     }
   }, [customerId, prodId, getApplicableRate, prod, customerRates]);
 
-  const taxRate = prod?.tax ?? 5;
-  const subtotal = qty * rate;
-  const taxAmt = Math.round((subtotal * taxRate) / 100);
+  // Tax calculations: 18% GST Exclusive
+  const isInterState = selectedCustomer?.state && selectedCustomer.state.toLowerCase() !== "punjab";
+  const cgstPct = isInterState ? 0 : 9;
+  const sgstPct = isInterState ? 0 : 9;
+  const igstPct = isInterState ? 18 : 0;
+
+  const subtotal = qty * rate; // Taxable Amount
+  const cgstAmt = Math.round((subtotal * cgstPct) / 100);
+  const sgstAmt = Math.round((subtotal * sgstPct) / 100);
+  const igstAmt = Math.round((subtotal * igstPct) / 100);
+  const taxAmt = cgstAmt + sgstAmt + igstAmt; // Total 18% GST
   const total = subtotal + taxAmt;
-  const totalKg = qty * (prod?.weight || 0);
+
+  // Credit Limit & Exposure Check
+  const currentOutstanding = selectedCustomer?.outstanding || 0;
+  const creditLimit = selectedCustomer?.credit_limit;
+  const projectedExposure = currentOutstanding + total;
+  const isExceedingCredit = typeof creditLimit === "number" && creditLimit > 0 && projectedExposure > creditLimit;
 
   // Handle Quick Rate Configuration
   const handleSaveRate = (e: React.FormEvent) => {
@@ -71,9 +88,9 @@ function NewOrderForm() {
     });
 
     setRate(agreedNum);
-    setIsContractRate(true);
+    setIsCustomerRate(true);
     setShowRateModal(false);
-    setMsg({ type: "success", text: `Approved contract rate of ₹${agreedNum} configured for ${selectedCustomer.name}. You can now proceed with the order.` });
+    setMsg({ type: "success", text: `Approved customer rate of ₹${agreedNum}/unit configured for ${selectedCustomer.name}. You can now proceed with booking.` });
   };
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -86,10 +103,10 @@ function NewOrderForm() {
       return;
     }
 
-    if (!isContractRate) {
+    if (!isCustomerRate && rate <= 0) {
       setMsg({
         type: "error",
-        text: "Rate Not Configured: You must configure an approved commercial rate for this customer before booking."
+        text: "Rate Not Configured: You must configure an approved commercial customer rate for this product before booking."
       });
       return;
     }
@@ -124,8 +141,8 @@ function NewOrderForm() {
   return (
     <div style={{ maxWidth: 840, margin: "0 auto", paddingBottom: 40 }}>
       <div style={{ marginBottom: 24 }}>
-        <h1 className="page-title">Create Supply Order</h1>
-        <p className="page-sub">Book and schedule commercial LPG cylinder deliveries.</p>
+        <h1 className="page-title">Create Commercial LPG Order</h1>
+        <p className="page-sub">Book and schedule deliveries with 18% GST & customer-specific rates.</p>
       </div>
 
       {msg && (
@@ -157,12 +174,32 @@ function NewOrderForm() {
             <span>Credit Limit: <strong>
               {selectedCustomer.credit_limit !== null ? `₹${selectedCustomer.credit_limit.toLocaleString("en-IN")}` : "Not Configured"}
             </strong></span>
+            <span>Payment Tenure: <strong>{selectedCustomer.payment_tenure_days || 15} Days</strong></span>
+          </div>
+        </div>
+      )}
+
+      {/* Credit Limit Exposure Alert */}
+      {isExceedingCredit && (
+        <div style={{
+          background: "#fef2f2", border: "1.5px solid #fecaca", borderRadius: 10,
+          padding: "14px 18px", marginBottom: 18, display: "flex", alignItems: "center", gap: 12
+        }}>
+          <ShieldAlert size={22} color="#dc2626" style={{ flexShrink: 0 }} />
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#991b1b" }}>
+              Credit Exposure Limit Warning
+            </div>
+            <div style={{ fontSize: 12, color: "#b91c1c", marginTop: 2 }}>
+              Projected customer balance (₹{projectedExposure.toLocaleString("en-IN")}) will exceed permitted credit limit of ₹{creditLimit?.toLocaleString("en-IN")}.
+              {isAdmin ? " As Admin, you may proceed after verifying payment authorization." : " Admin approval policy applies."}
+            </div>
           </div>
         </div>
       )}
 
       {/* Rate Warning Banner if unconfigured */}
-      {!isContractRate && (
+      {!isCustomerRate && (
         <div style={{
           background: "#fffbeb", border: "1.5px solid #fde68a", borderRadius: 10,
           padding: "14px 18px", marginBottom: 18, display: "flex", alignItems: "center",
@@ -172,27 +209,40 @@ function NewOrderForm() {
             <AlertTriangle size={20} color="#d97706" />
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, color: "#92400e" }}>
-                Commercial Contract Rate Not Configured
+                Commercial Customer Rate Not Configured
               </div>
               <div style={{ fontSize: 12, color: "#b45309", marginTop: 2 }}>
-                Orders cannot be confirmed without an approved contract rate. Configure the customer rate to unlock order booking.
+                Orders require an approved basic rate per cylinder. Configure the customer rate to proceed.
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setModalAgreedRate(String(prod?.rate || 1850));
-              setShowRateModal(true);
-            }}
-            style={{
-              padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700,
-              background: "#d97706", color: "#fff", border: "none", cursor: "pointer",
-              display: "inline-flex", alignItems: "center", gap: 5
-            }}
-          >
-            <Plus size={14} /> Configure Approved Rate
-          </button>
+          {isAdmin ? (
+            <button
+              type="button"
+              onClick={() => {
+                setModalAgreedRate(String(prod?.rate || 2680));
+                setShowRateModal(true);
+              }}
+              style={{
+                padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+                background: "#d97706", color: "#fff", border: "none", cursor: "pointer",
+                display: "inline-flex", alignItems: "center", gap: 5
+              }}
+            >
+              <Plus size={14} /> Configure Customer Rate
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => router.push("/products/rates/requests")}
+              style={{
+                padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+                background: "#1e3a8a", color: "#fff", border: "none", cursor: "pointer"
+              }}
+            >
+              Request Rate Change
+            </button>
+          )}
         </div>
       )}
 
@@ -237,21 +287,21 @@ function NewOrderForm() {
           </div>
         </div>
 
-        {/* Cylinder & Pricing */}
+        {/* Cylinder & Pricing (Exactly Six Active Products) */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span className="card-title">Cylinder & Pricing</span>
+            <span className="card-title">LPG Product & Basic Pricing</span>
             <span style={{
               fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 100,
-              background: isContractRate ? "#dcfce7" : "#fee2e2",
-              color: isContractRate ? "#15803d" : "#dc2626"
+              background: isCustomerRate ? "#dcfce7" : "#fee2e2",
+              color: isCustomerRate ? "#15803d" : "#dc2626"
             }}>
-              {isContractRate ? "✓ Approved Contract Rate" : "⚠️ Rate Not Configured"}
+              {isCustomerRate ? "✓ Approved Customer Rate" : "⚠️ Rate Unconfigured"}
             </span>
           </div>
           <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
-              <Lbl label="LPG Cylinder Product *">
+              <Lbl label="Active LPG Product Line *">
                 <select
                   name="product_id"
                   required
@@ -259,14 +309,14 @@ function NewOrderForm() {
                   value={prodId}
                   onChange={e => setProdId(e.target.value)}
                 >
-                  {products.map(p => (
+                  {activeProducts.map(p => (
                     <option key={p.id} value={p.id}>
-                      {p.name} ({p.weight} kg) - Standard ₹{p.rate}
+                      {p.name} ({p.code})
                     </option>
                   ))}
                 </select>
               </Lbl>
-              <Lbl label="Quantity (Cylinders) *">
+              <Lbl label="Quantity (Cylinders / Units) *">
                 <input
                   name="quantity"
                   type="number"
@@ -279,33 +329,43 @@ function NewOrderForm() {
               </Lbl>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16 }}>
-              <Lbl label="Unit Rate (₹/Cylinder)">
+            <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.2fr 1.2fr", gap: 16 }}>
+              <Lbl label="Basic Rate (₹ per Cylinder / Unit)">
                 <input
                   name="unit_rate"
                   type="number"
                   step="0.01"
-                  readOnly={!isContractRate}
+                  readOnly={!isAdmin && isCustomerRate}
                   value={rate}
                   onChange={e => setRate(parseFloat(e.target.value) || 0)}
-                  style={{ ...inp, background: !isContractRate ? "#fee2e2" : "var(--bg)" }}
+                  style={{ ...inp, background: !isCustomerRate ? "#fee2e2" : "var(--bg)" }}
                 />
               </Lbl>
-              <Lbl label={`GST Tax (${taxRate}%)`}>
-                <div style={{ ...inp, background: "var(--bg)", color: "var(--fg2)", display: "flex", alignItems: "center" }}>
-                  ₹{taxAmt.toLocaleString("en-IN")}
-                </div>
-              </Lbl>
-              <Lbl label="Net LPG Weight">
-                <div style={{ ...inp, background: "#fff7ed", color: "var(--orange)", fontWeight: 800, display: "flex", alignItems: "center" }}>
-                  {totalKg.toFixed(1)} kg
-                </div>
-              </Lbl>
-              <Lbl label="Total Subtotal">
+              <Lbl label="Taxable Subtotal (Exclusive)">
                 <div style={{ ...inp, background: "var(--bg)", fontWeight: 700, display: "flex", alignItems: "center" }}>
                   ₹{subtotal.toLocaleString("en-IN")}
                 </div>
               </Lbl>
+              <Lbl label="Statutory GST (18%)">
+                <div style={{ ...inp, background: "#fff7ed", color: "var(--orange)", fontWeight: 800, display: "flex", alignItems: "center" }}>
+                  ₹{taxAmt.toLocaleString("en-IN")}
+                </div>
+              </Lbl>
+            </div>
+
+            {/* GST breakdown pills */}
+            <div style={{ display: "flex", gap: 12, fontSize: 12, background: "#f8fafc", padding: "10px 14px", borderRadius: 8 }}>
+              {isInterState ? (
+                <span>IGST 18%: <strong>₹{igstAmt.toLocaleString("en-IN")}</strong> (Inter-State: {selectedCustomer?.state})</span>
+              ) : (
+                <>
+                  <span>CGST 9%: <strong>₹{cgstAmt.toLocaleString("en-IN")}</strong></span>
+                  <span>·</span>
+                  <span>SGST 9%: <strong>₹{sgstAmt.toLocaleString("en-IN")}</strong></span>
+                  <span>·</span>
+                  <span style={{ color: "#16a34a", fontWeight: 600 }}>Intra-State Supply (Punjab)</span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -315,12 +375,12 @@ function NewOrderForm() {
           <div className="card-header"><span className="card-title">Order Financial Summary</span></div>
           <div style={{ padding: "14px 20px" }}>
             {[
-              ["Product", `${prod?.name} (${prod?.weight} kg)`],
-              ["Quantity", `${qty} cylinder${qty > 1 ? "s" : ""}`],
-              ["Effective Rate", isContractRate ? `₹${rate.toLocaleString("en-IN")} / cylinder` : "Rate Not Configured"],
-              ["Subtotal", `₹${subtotal.toLocaleString("en-IN")}`],
-              [`GST (${taxRate}%)`, `₹${taxAmt.toLocaleString("en-IN")}`],
-              ["Order Gross Total", `₹${total.toLocaleString("en-IN")}`],
+              ["Product Line", prod?.name],
+              ["Quantity", `${qty} cylinder${qty > 1 ? "s" : ""} / unit${qty > 1 ? "s" : ""}`],
+              ["Basic Rate", isCustomerRate ? `₹${rate.toLocaleString("en-IN")} / cylinder` : "Unconfigured"],
+              ["Taxable Amount", `₹${subtotal.toLocaleString("en-IN")}`],
+              ["Total GST (18%)", `₹${taxAmt.toLocaleString("en-IN")}`],
+              ["Final Bill Amount", `₹${total.toLocaleString("en-IN")}`],
             ].map(([k, v], i) => (
               <div key={k} style={{
                 display: "flex", justifyContent: "space-between", padding: "6px 0",
@@ -343,7 +403,7 @@ function NewOrderForm() {
               <textarea
                 name="remarks"
                 rows={2}
-                placeholder="e.g. Priority morning delivery, deliver to kitchen back gate..."
+                placeholder="e.g. Priority delivery, driver to collect matching empty cylinders..."
                 style={{
                   width: "100%", border: "1.5px solid var(--border)", borderRadius: 8,
                   padding: "9px 13px", fontSize: 13, color: "var(--fg)", background: "var(--bg)",
@@ -354,70 +414,76 @@ function NewOrderForm() {
           </div>
         </div>
 
+        {/* Actions */}
         <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
           <button type="button" className="btn btn-ghost" onClick={() => router.back()}>Cancel</button>
-          <button
-            type="submit"
-            className="btn btn-orange"
-            disabled={pending || !isContractRate}
-            style={{
-              opacity: !isContractRate ? 0.6 : 1,
-              cursor: !isContractRate ? "not-allowed" : "pointer"
-            }}
-          >
-            {pending ? "Creating Order…" : !isContractRate ? "🚫 Rate Not Configured — Cannot Confirm" : "✓ Confirm & Save Order"}
+          <button type="submit" className="btn btn-orange" disabled={pending}>
+            {pending ? "Confirming Order..." : `Book Supply Order (₹${total.toLocaleString("en-IN")})`}
           </button>
         </div>
       </form>
 
-      {/* Configure Rate Modal */}
-      {showRateModal && selectedCustomer && (
+      {/* Quick Customer Rate Modal (Admin Only) */}
+      {showRateModal && isAdmin && selectedCustomer && prod && (
         <div style={{
-          position: "fixed", inset: 0, background: "rgba(15,23,42,.6)", zIndex: 9999,
+          position: "fixed", inset: 0, background: "rgba(13,31,60,.55)", zIndex: 1000,
           display: "flex", alignItems: "center", justifyContent: "center", padding: 20
         }}>
           <div style={{
-            background: "#fff", borderRadius: 14, width: "100%", maxWidth: 480,
-            boxShadow: "0 20px 40px rgba(0,0,0,.2)", overflow: "hidden"
+            background: "#fff", borderRadius: 14, maxWidth: 440, width: "100%",
+            boxShadow: "0 20px 60px rgba(0,0,0,.3)", overflow: "hidden"
           }}>
-            <div style={{
-              padding: "16px 20px", borderBottom: "1px solid #e2e8f0",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              background: "#1e3a8a", color: "#fff"
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 14 }}>
-                <ShieldCheck size={18} /> Configure Approved Rate
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <ShieldCheck size={18} color="#16a34a" />
+                <span style={{ fontWeight: 800, fontSize: 15, color: "#1e293b" }}>Authorize Customer Rate</span>
               </div>
-              <button onClick={() => setShowRateModal(false)} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer" }}>
+              <button onClick={() => setShowRateModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b" }}>
                 <X size={18} />
               </button>
             </div>
+
             <form onSubmit={handleSaveRate} style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>Consumer Account</label>
-                <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{selectedCustomer.name} ({selectedCustomer.code})</div>
+              <div style={{ background: "#f8fafc", padding: 12, borderRadius: 8, fontSize: 12 }}>
+                <div>Customer: <strong>{selectedCustomer.name}</strong> ({selectedCustomer.code})</div>
+                <div style={{ marginTop: 4 }}>Product: <strong>{prod.name}</strong></div>
               </div>
+
               <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>Cylinder Product</label>
-                <div style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>{prod?.name} (Standard List: ₹{prod?.rate})</div>
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#64748b", marginBottom: 4 }}>Agreed Unit Rate (₹/Cylinder) *</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 5 }}>
+                  Approved Basic Rate (₹ per Cylinder) *
+                </label>
                 <input
                   type="number"
                   step="0.01"
                   required
+                  autoFocus
+                  placeholder="e.g. 2680"
                   value={modalAgreedRate}
                   onChange={e => setModalAgreedRate(e.target.value)}
-                  style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "9px 12px", fontSize: 14, fontWeight: 700, color: "#1e293b", outline: "none" }}
+                  style={{
+                    width: "100%", border: "1.5px solid #cbd5e1", borderRadius: 8,
+                    padding: "9px 12px", fontSize: 14, outline: "none", boxSizing: "border-box"
+                  }}
                 />
+                <span style={{ fontSize: 11, color: "#64748b", marginTop: 3, display: "block" }}>
+                  Basic GST-exclusive rate. Standard 18% GST will be added during invoicing.
+                </span>
               </div>
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 10 }}>
-                <button type="button" onClick={() => setShowRateModal(false)} style={{ padding: "8px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: 12.5 }}>
+
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowRateModal(false)}
+                  style={{ padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: "#f1f5f9", color: "#475569", border: "none", cursor: "pointer" }}
+                >
                   Cancel
                 </button>
-                <button type="submit" style={{ padding: "8px 18px", borderRadius: 8, background: "#16a34a", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12.5 }}>
-                  ✓ Approve & Apply Rate
+                <button
+                  type="submit"
+                  style={{ padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "#16a34a", color: "#fff", border: "none", cursor: "pointer" }}
+                >
+                  Save & Lock Rate
                 </button>
               </div>
             </form>
@@ -428,9 +494,17 @@ function NewOrderForm() {
   );
 }
 
+export default function NewOrderPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 40, textAlign: "center" }}>Loading Order Form...</div>}>
+      <NewOrderForm />
+    </Suspense>
+  );
+}
+
 function Lbl({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div style={{ flex: 1, minWidth: 160 }}>
       <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--fg2)", marginBottom: 6 }}>{label}</label>
       {children}
     </div>
@@ -440,14 +514,9 @@ function Lbl({ label, children }: { label: string; children: React.ReactNode }) 
 const inp: React.CSSProperties = {
   width: "100%", border: "1.5px solid var(--border)", borderRadius: 8,
   padding: "9px 13px", fontSize: 13, color: "var(--fg)", background: "var(--bg)",
-  outline: "none", fontFamily: "inherit"
+  outline: "none", boxSizing: "border-box", transition: "border-color .15s",
 };
-const sel: React.CSSProperties = { ...inp, cursor: "pointer" };
 
-export default function NewOrderPage() {
-  return (
-    <Suspense fallback={<div style={{ padding: 24, color: "#64748b" }}>Loading order form...</div>}>
-      <NewOrderForm />
-    </Suspense>
-  );
-}
+const sel: React.CSSProperties = {
+  ...inp, cursor: "pointer",
+};
