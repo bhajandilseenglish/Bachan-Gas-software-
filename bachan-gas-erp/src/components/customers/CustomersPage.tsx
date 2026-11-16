@@ -34,32 +34,47 @@ export default function CustomersPage() {
   const { customers, deleteCustomer } = useERPStore();
 
   const [search, setSearch] = useState("");
+  const [segment, setSegment] = useState<"commercial" | "domestic" | "all">("commercial");
   const [cat, setCat] = useState("all");
   const [status, setStatus] = useState("all");
 
   useEffect(() => {
     const qCat = searchParams.get("category");
-    if (qCat) {
-      setCat(qCat);
+    if (qCat === "domestic") {
+      setSegment("domestic");
+    } else if (qCat === "all") {
+      setSegment("all");
     } else {
-      setCat("all");
+      setSegment("commercial");
     }
   }, [searchParams]);
 
+  const commercialCount = customers.filter(c => c.category !== "domestic").length;
+  const domesticCount = customers.filter(c => c.category === "domestic").length;
+
   const filtered = customers.filter(c => {
-    const ms = !search ||
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.business.toLowerCase().includes(search.toLowerCase()) ||
-      c.code.toLowerCase().includes(search.toLowerCase()) ||
-      c.mobile.includes(search) ||
-      c.city.toLowerCase().includes(search.toLowerCase());
-    const mc = cat === "all" || c.category === cat;
-    const mst = status === "all" || c.status === status;
-    return ms && mc && mst;
+    if (segment === "commercial" && c.category === "domestic") return false;
+    if (segment === "domestic" && c.category !== "domestic") return false;
+
+    if (cat !== "all" && c.category !== cat) return false;
+    if (status !== "all" && c.status !== status) return false;
+
+    if (search) {
+      const q = search.toLowerCase();
+      const matchName = c.name.toLowerCase().includes(q);
+      const matchBiz = (c.business || "").toLowerCase().includes(q);
+      const matchCode = c.code.toLowerCase().includes(q);
+      const matchSap = c.sap_code ? c.sap_code.toLowerCase().includes(q) : false;
+      const matchMobile = (c.mobile || "").includes(q);
+      const matchCity = (c.city || "").toLowerCase().includes(q);
+      if (!matchName && !matchBiz && !matchCode && !matchSap && !matchMobile && !matchCity) return false;
+    }
+
+    return true;
   });
 
-  const activeCount = customers.filter(c => c.status === "active").length;
-  const totalOut = customers.reduce((a, c) => a + (c.outstanding || 0), 0);
+  const activeCount = filtered.filter(c => c.status === "active").length;
+  const totalOut = filtered.reduce((a, c) => a + (c.outstanding || 0), 0);
 
   // Real CSV Export
   const handleExportCSV = () => {
@@ -135,12 +150,46 @@ export default function CustomersPage() {
         ))}
       </div>
 
+      {/* Segment Selector: Commercial vs Domestic vs All */}
+      <div style={{ display: "flex", gap: 8, borderBottom: "1.5px solid #e2e8f0", paddingBottom: 2, overflowX: "auto" }}>
+        {[
+          { id: "commercial", label: `Commercial Accounts (${commercialCount})` },
+          { id: "domestic", label: `Domestic Subsidised (${domesticCount})` },
+          { id: "all", label: `All Accounts (${customers.length})` },
+        ].map(t => {
+          const isActive = segment === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => {
+                setSegment(t.id as any);
+                setCat("all");
+              }}
+              style={{
+                padding: "9px 18px",
+                border: "none",
+                background: "transparent",
+                borderBottom: isActive ? "3px solid #1e3a8a" : "3px solid transparent",
+                color: isActive ? "#1e3a8a" : "#64748b",
+                fontWeight: isActive ? 800 : 600,
+                fontSize: 13.5,
+                cursor: "pointer",
+                transition: "all .12s",
+                whiteSpace: "nowrap"
+              }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Filters */}
       <div className="customers-filter-bar" style={{ ...card(), padding: "14px 18px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <div className="filter-search-box" style={{ display:"flex", alignItems:"center", gap:8, border:"1.5px solid #e2e8f0", borderRadius:8, padding:"8px 13px", flex:1, minWidth:220, background:"#f8fafc" }}>
           <Search size={14} color="#94a3b8" />
           <input
-            placeholder="Search customer, business, mobile, code..."
+            placeholder="Search customer, business, SAP code, mobile, code..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{ background:"transparent", border:"none", outline:"none", fontSize:13, color:"#1e293b", width:"100%" }}
@@ -191,7 +240,7 @@ export default function CustomersPage() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0" }}>
-                {["Customer","Consumer Code","Mobile","City / Area","Category","Outstanding (Dr)","Credit Limit","Last Supply","Status","Actions"].map(h => (
+                {["Customer","Consumer Code","SAP Code","Mobile","City / Area","Category","Outstanding (Dr)","Credit Limit","Last Supply","Status","Actions"].map(h => (
                   <th key={h} style={{ padding:"10px 16px", textAlign:"left", fontSize:10.5, fontWeight:700, textTransform:"uppercase", letterSpacing:".06em", color:"#64748b", whiteSpace:"nowrap" }}>{h}</th>
                 ))}
               </tr>
@@ -199,7 +248,7 @@ export default function CustomersPage() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={{ padding: 40, textAlign: "center", color: "#64748b", fontSize: 13 }}>
+                  <td colSpan={11} style={{ padding: 40, textAlign: "center", color: "#64748b", fontSize: 13 }}>
                     No customers match the current filter criteria.
                   </td>
                 </tr>
@@ -228,6 +277,15 @@ export default function CustomersPage() {
                       </td>
                       <td style={{ padding:"12px 16px" }} onClick={() => router.push(`/customers/${c.id}`)}>
                         <span style={{ fontFamily:"monospace", fontWeight:700, color:"#1e3a8a", fontSize:12 }}>{c.code}</span>
+                      </td>
+                      <td style={{ padding:"12px 16px" }} onClick={() => router.push(`/customers/${c.id}`)}>
+                        {c.sap_code ? (
+                          <span style={{ fontFamily:"monospace", fontWeight:700, color:"#92400e", background: "#fef3c7", padding: "2px 7px", borderRadius: 4, fontSize: 11, border: "1px solid #fde68a" }}>
+                            {c.sap_code}
+                          </span>
+                        ) : (
+                          <span style={{ color: "#94a3b8", fontSize: 11 }}>—</span>
+                        )}
                       </td>
                       <td style={{ padding:"12px 16px", color:"#64748b", fontSize:12.5 }} onClick={() => router.push(`/customers/${c.id}`)}>{c.mobile}</td>
                       <td style={{ padding:"12px 16px" }} onClick={() => router.push(`/customers/${c.id}`)}>
@@ -370,8 +428,15 @@ export default function CustomersPage() {
                   padding: "8px 10px", background: "#f8fafc", borderRadius: 8, fontSize: 11
                 }}>
                   <div>
-                    <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>CONSUMER CODE</span>
-                    <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#1e3a8a" }}>{c.code}</span>
+                    <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>CONSUMER & SAP CODE</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+                      <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#1e3a8a" }}>{c.code}</span>
+                      {c.sap_code && (
+                        <span style={{ fontSize: 9.5, background: "#fef3c7", color: "#92400e", padding: "1px 5px", borderRadius: 4, border: "1px solid #fde68a", fontWeight: 700 }}>
+                          {c.sap_code}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <span style={{ color: "#64748b", display: "block", fontSize: 9.5, fontWeight: 700 }}>MOBILE</span>

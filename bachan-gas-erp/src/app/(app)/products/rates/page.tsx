@@ -1,10 +1,13 @@
 "use client";
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { Tag, Plus, Search, Edit3, Check, X, ShieldAlert, ArrowRight, User, Download, Clock, Shield } from "lucide-react";
+import { Tag, Plus, Search, Edit3, Check, X, ShieldAlert, ArrowRight, User, Download, Clock, Shield, History } from "lucide-react";
 import { useERPStore, CustomerRate } from "@/lib/store";
 
-const INR = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN");
+const INR = (n: number | null | undefined) => {
+  if (n === null || n === undefined) return "None";
+  return "₹" + Math.round(n).toLocaleString("en-IN");
+};
 
 const card = (s?: React.CSSProperties): React.CSSProperties => ({
   background: "#fff", border: "1px solid #e2e8f0",
@@ -16,6 +19,7 @@ export default function ProductRatesPage() {
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [selectedRateHistory, setSelectedRateHistory] = useState<CustomerRate | null>(null);
 
   const isAdmin = currentUserRole === "admin";
   const activeProducts = products.filter(p => p.active);
@@ -38,6 +42,7 @@ export default function ProductRatesPage() {
       customerId: selectedCustomer.id,
       customerName: selectedCustomer.name,
       customerCode: selectedCustomer.code,
+      sapCode: selectedCustomer.sap_code,
       productId: selectedProduct.id,
       productName: selectedProduct.name,
       defaultRate: selectedProduct.rate,
@@ -77,12 +82,14 @@ export default function ProductRatesPage() {
   };
 
   const handleExportCSV = () => {
-    const headers = ["Consumer ID", "Customer Name", "Product", "Basic Rate (per Unit)", "GST Rate", "Effective From", "Valid Till", "Approved By"];
+    const headers = ["Consumer ID", "SAP Code", "Customer Name", "Product", "Approved Basic Rate (per Unit)", "Previous Rate", "GST Rate", "Effective From", "Valid Till", "Approved By"];
     const rows = filtered.map(r => [
       r.customerCode,
+      r.sapCode || "—",
       `"${r.customerName}"`,
       `"${r.productName}"`,
       r.agreedRate,
+      r.previousRate || "—",
       "18%",
       r.effectiveFrom,
       r.validTill,
@@ -104,7 +111,8 @@ export default function ProductRatesPage() {
         !search ||
         r.customerName.toLowerCase().includes(search.toLowerCase()) ||
         r.productName.toLowerCase().includes(search.toLowerCase()) ||
-        r.customerCode.toLowerCase().includes(search.toLowerCase());
+        r.customerCode.toLowerCase().includes(search.toLowerCase()) ||
+        (r.sapCode && r.sapCode.toLowerCase().includes(search.toLowerCase()));
       return matchSearch;
     });
   }, [customerRates, search]);
@@ -118,10 +126,21 @@ export default function ProductRatesPage() {
             Customer Rates
           </h1>
           <p style={{ fontSize: 13, color: "#64748b", margin: "4px 0 0" }}>
-            Customer-specific pricing per cylinder/unit · Standard 18% GST calculated separately
+            Customer-specific approved pricing per cylinder/unit · 18% statutory GST calculated dynamically
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Link
+            href="/products/basic-rates"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px",
+              borderRadius: 8, fontSize: 12.5, fontWeight: 600, background: "#f8fafc",
+              color: "#1e3a8a", border: "1.5px solid #cbd5e1", textDecoration: "none"
+            }}
+          >
+            <Shield size={14} /> Basic Rate Master
+          </Link>
+
           {customerRates.length > 0 && (
             <button
               onClick={handleExportCSV}
@@ -176,7 +195,7 @@ export default function ProductRatesPage() {
       <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 10, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
         <Tag size={16} color="#2563eb" style={{ flexShrink: 0 }} />
         <span style={{ fontSize: 13, color: "#1e40af" }}>
-          <strong>ERP Customer Rate Engine:</strong> All rates are entered per cylinder/unit (GST-exclusive). When an order is placed, the approved customer rate is frozen on the order, and 18% statutory GST is added to generate the final invoice.
+          <strong>ERP Customer Rate Master:</strong> Pricing is set per cylinder/unit (GST-exclusive). If a customer rate is not configured, the ERP falls back to the approved Basic Rate Master. If neither is available, new order booking is strictly blocked until authorized by Admin.
         </span>
       </div>
 
@@ -185,7 +204,7 @@ export default function ProductRatesPage() {
         <Search size={16} color="#94a3b8" />
         <input
           type="text"
-          placeholder="Search by customer name, code, or cylinder product..."
+          placeholder="Search by customer name, consumer number, SAP code, or cylinder product..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           style={{ width: "100%", border: "none", outline: "none", fontSize: 13, color: "#1e293b", background: "transparent" }}
@@ -202,7 +221,7 @@ export default function ProductRatesPage() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0" }}>
-              {["Customer", "Consumer Code", "LPG Product", "Approved Basic Rate", "Statutory GST", "Effective Dates", "Authorized By"].map(h => (
+              {["Customer", "Consumer Code", "SAP Code", "LPG Product", "Current Basic Rate", "Previous Rate", "Effective Dates", "Authorized By", "History"].map(h => (
                 <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "#64748b" }}>{h}</th>
               ))}
             </tr>
@@ -210,8 +229,8 @@ export default function ProductRatesPage() {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ padding: 40, textAlign: "center", color: "#64748b", fontSize: 13 }}>
-                  No customer-specific rates configured yet. Standard order booking prompts for an approved rate prior to booking.
+                <td colSpan={9} style={{ padding: 40, textAlign: "center", color: "#64748b", fontSize: 13 }}>
+                  No customer-specific rates match your query. Use &quot;+ Add Customer Rate&quot; to configure special pricing.
                 </td>
               </tr>
             ) : (
@@ -223,6 +242,9 @@ export default function ProductRatesPage() {
                   <td style={{ padding: "12px 16px", fontFamily: "monospace", fontWeight: 700, color: "#1e3a8a", fontSize: 12 }}>
                     {r.customerCode}
                   </td>
+                  <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: 12, color: r.sapCode ? "#0891b2" : "#94a3b8" }}>
+                    {r.sapCode || "—"}
+                  </td>
                   <td style={{ padding: "12px 16px", fontWeight: 600, fontSize: 13, color: "#1e293b" }}>
                     {r.productName}
                   </td>
@@ -231,14 +253,34 @@ export default function ProductRatesPage() {
                       {INR(r.agreedRate)} <span style={{ fontSize: 11, fontWeight: 600, color: "#64748b" }}>/ unit</span>
                     </div>
                   </td>
-                  <td style={{ padding: "12px 16px", fontSize: 12.5, color: "#f97316", fontWeight: 600 }}>
-                    18% (Exclusive)
+                  <td style={{ padding: "12px 16px", fontSize: 12, color: "#64748b" }}>
+                    {INR(r.previousRate)}
                   </td>
                   <td style={{ padding: "12px 16px", fontSize: 12, color: "#64748b" }}>
                     {r.effectiveFrom} — {r.validTill}
                   </td>
                   <td style={{ padding: "12px 16px", fontSize: 12, color: "#1e3a8a", fontWeight: 600 }}>
                     {r.approvedBy}
+                  </td>
+                  <td style={{ padding: "12px 16px" }}>
+                    <button
+                      onClick={() => setSelectedRateHistory(r)}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        padding: "5px 10px",
+                        borderRadius: 6,
+                        border: "1px solid #e2e8f0",
+                        background: "#fff",
+                        color: "#475569",
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        cursor: "pointer"
+                      }}
+                    >
+                      <History size={12} /> Rate History
+                    </button>
                   </td>
                 </tr>
               ))
@@ -247,35 +289,66 @@ export default function ProductRatesPage() {
         </table>
       </div>
 
-      {/* Mobile Cards View */}
-      <div className="mobile-only-cards" style={{ display: "none" }}>
-        {filtered.length === 0 ? (
-          <div style={{ ...card(), padding: 30, textAlign: "center", color: "#64748b" }}>
-            No customer rates configured.
-          </div>
-        ) : (
-          filtered.map(r => (
-            <div key={r.id} style={{ ...card(), padding: 14 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: "#1e293b" }}>{r.customerName}</div>
-                  <span style={{ fontFamily: "monospace", fontSize: 11, color: "#1e3a8a", fontWeight: 700 }}>{r.customerCode}</span>
-                </div>
-                <div style={{ fontWeight: 900, fontSize: 16, color: "#16a34a" }}>
-                  {INR(r.agreedRate)}
+      {/* Rate History Modal */}
+      {selectedRateHistory && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: 540, padding: 24, boxShadow: "0 20px 25px -5px rgba(0,0,0,.15)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #e2e8f0", paddingBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#1e293b" }}>Customer Rate History</div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                  {selectedRateHistory.customerName} ({selectedRateHistory.customerCode}) • {selectedRateHistory.productName}
                 </div>
               </div>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: "#1e293b", margin: "6px 0" }}>
-                Product: {r.productName}
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "#64748b", borderTop: "1px solid #f1f5f9", paddingTop: 8 }}>
-                <span>GST: 18% Exclusive</span>
-                <span>Approved: {r.approvedBy}</span>
-              </div>
+              <button onClick={() => setSelectedRateHistory(null)} style={{ background: "none", border: "none", cursor: "pointer" }}><X size={18} /></button>
             </div>
-          ))
-        )}
-      </div>
+
+            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ padding: "10px 14px", background: "#f0fdf4", borderRadius: 8, border: "1px solid #bbf7d0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#166534" }}>CURRENT ACTIVE RATE</div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: "#15803d" }}>₹{selectedRateHistory.agreedRate.toLocaleString("en-IN")}/unit</div>
+                </div>
+                <div style={{ textAlign: "right", fontSize: 11.5, color: "#166534" }}>
+                  <div>Approved by: <strong>{selectedRateHistory.approvedBy}</strong></div>
+                  <div>Effective: {selectedRateHistory.effectiveFrom}</div>
+                </div>
+              </div>
+
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#475569", marginTop: 6, textTransform: "uppercase" }}>Prior Rate Revisions</div>
+
+              {selectedRateHistory.rateHistory && selectedRateHistory.rateHistory.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto" }}>
+                  {selectedRateHistory.rateHistory.map((hist, idx) => (
+                    <div key={idx} style={{ padding: "8px 12px", background: "#f8fafc", borderRadius: 6, border: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                      <div>
+                        <strong>₹{hist.rate.toLocaleString("en-IN")}</strong> <span style={{ color: "#64748b" }}>({hist.notes || "Rate revision"})</span>
+                      </div>
+                      <div style={{ color: "#64748b" }}>
+                        {hist.changedAt} • {hist.approvedBy}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: "#94a3b8", padding: "10px 0", textAlign: "center" }}>
+                  No prior revisions recorded. This is the initial approved rate.
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+              <button
+                type="button"
+                onClick={() => setSelectedRateHistory(null)}
+                style={{ padding: "8px 18px", borderRadius: 8, background: "#1e293b", color: "#fff", border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 700 }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Admin Add Customer Rate Modal */}
       {showModal && isAdmin && (
@@ -303,7 +376,7 @@ export default function ProductRatesPage() {
                   style={{ width: "100%", padding: "9px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, background: "#f8fafc", outline: "none" }}
                 >
                   {customers.map(c => (
-                    <option key={c.id} value={c.id}>{c.name} ({c.code}) - {c.city}</option>
+                    <option key={c.id} value={c.id}>{c.name} ({c.code}){c.sap_code ? ` [${c.sap_code}]` : ""} - {c.city}</option>
                   ))}
                 </select>
               </div>
@@ -373,7 +446,7 @@ export default function ProductRatesPage() {
                   style={{ width: "100%", padding: "9px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, background: "#f8fafc", outline: "none" }}
                 >
                   {customers.map(c => (
-                    <option key={c.id} value={c.id}>{c.name} ({c.code}) - {c.city}</option>
+                    <option key={c.id} value={c.id}>{c.name} ({c.code}){c.sap_code ? ` [${c.sap_code}]` : ""} - {c.city}</option>
                   ))}
                 </select>
               </div>

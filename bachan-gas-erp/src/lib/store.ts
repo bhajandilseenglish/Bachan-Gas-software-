@@ -47,6 +47,7 @@ export type OrderingFrequency =
 export interface Customer {
   id: string;
   code: string;
+  sap_code?: string; // SAP Customer Code, when available
   name: string;
   business: string;
   category: "commercial" | "domestic" | "industrial" | "institutional";
@@ -67,6 +68,7 @@ export interface Customer {
   payment_tenure_days: number; // e.g. 7, 15, 30, 45
   payment_terms: string;
   outstanding: number | null;
+  advance_balance?: number; // Unallocated customer advance balance
   overdue: number | null;
   last_payment: number | null;
   last_payment_date: string;
@@ -75,6 +77,7 @@ export interface Customer {
   last_supply: string;
   last_supply_qty: number;
   last_supply_product: string;
+  last_supply_date?: string;
   pending_orders: number;
   created_at: string;
   is_financial_configured?: boolean;
@@ -83,6 +86,13 @@ export interface Customer {
   total_filled_delivered: number;
   total_empty_received: number;
   empty_cylinders_pending: number;
+
+  // Consumption Analytics Cache
+  average_daily_consumption?: number;
+  average_weekly_consumption?: number;
+  average_monthly_consumption?: number;
+  average_order_qty?: number;
+  average_days_between_orders?: number;
 
   // Inactivity & Order Frequency Alerts
   ordering_frequency: OrderingFrequency;
@@ -110,18 +120,33 @@ export interface CylinderProduct {
   weight?: number; // Internal legacy reference only
 }
 
+export interface BasicRateHistoryItem {
+  id: string;
+  productId: string;
+  productCode: string;
+  productName: string;
+  basicRate: number; // GST-exclusive rate per cylinder
+  effectiveFrom: string;
+  updatedBy: string;
+  updatedAt: string;
+  notes?: string;
+}
+
 export interface CustomerRate {
   id: string;
   customerId: string;
   customerName: string;
   customerCode: string;
+  sapCode?: string;
   productId: string;
   productName: string;
   defaultRate: number;
   agreedRate: number; // Basic rate per cylinder/unit
+  previousRate?: number;
   effectiveFrom: string;
   validTill: string;
   approvedBy: string;
+  rateHistory?: { rate: number; effectiveFrom: string; approvedBy: string; changedAt: string; notes?: string }[];
 }
 
 export interface RateChangeRequest {
@@ -130,6 +155,7 @@ export interface RateChangeRequest {
   customerId: string;
   customerName: string;
   customerCode: string;
+  sapCode?: string;
   productId: string;
   productName: string;
   existingRate: number | null;
@@ -223,10 +249,14 @@ export interface Order {
   customerId: string;
   customerName: string;
   customerCode: string;
+  sapCode?: string;
   date: string;
   deliveryDate?: string;
   items: OrderItem[];
   totalQty: number;
+  qtyIssued?: number;
+  emptyReceivedOnOrder?: number;
+  emptyPendingSnapshot?: number;
   subtotal: number;  // Taxable amount
   cgstAmount: number;
   sgstAmount: number;
@@ -362,6 +392,23 @@ export interface AgencySettings {
   defaultPaymentTenureDays: number;
   defaultPaymentTerms?: string;
   dailyCutoffTimeMinutes: number; // Default 18:00 (1080)
+  allowStandardRateFallback?: boolean; // Policy: whether to fallback to standard product rate if no customer rate
+}
+
+export interface ConsumptionMetrics {
+  totalDeliveredCylinders: number;
+  deliveredByProduct: { productName: string; qty: number; equivalentKg: number }[];
+  totalDeliveredKg: number;
+  averageDailyConsumption: number;
+  averageWeeklyConsumption: number;
+  averageMonthlyConsumption: number;
+  averageOrderQty: number;
+  averageDaysBetweenOrders: number;
+  orderCount: number;
+  lastOrderDate?: string;
+  lastSupplyDate?: string;
+  expectedNextOrderDate?: string;
+  hasSufficientData: boolean;
 }
 
 export interface StaffUser {
@@ -409,12 +456,24 @@ export const REAL_AGENCY_SETTINGS: AgencySettings = {
   defaultPaymentTenureDays: 15,
   defaultPaymentTerms: "Net 15 Days",
   dailyCutoffTimeMinutes: 18 * 60, // 18:00 cutoff in Asia/Kolkata
+  allowStandardRateFallback: true,
 };
+
+// Initial Basic Rate History for the 6 approved products
+export const INITIAL_BASIC_RATE_HISTORY: BasicRateHistoryItem[] = [
+  { id: "brh-1", productId: "p-lot-475", productCode: "LPG-475-LOT", productName: "47.5kg LOT", basicRate: 0, effectiveFrom: "2026-11-01", updatedBy: "Bachan Admin", updatedAt: "01 Nov 2026", notes: "Initial Approved Master Rate" },
+  { id: "brh-2", productId: "p-vot-475", productCode: "LPG-475-VOT", productName: "47.5kg VOT", basicRate: 0, effectiveFrom: "2026-11-01", updatedBy: "Bachan Admin", updatedAt: "01 Nov 2026", notes: "Initial Approved Master Rate" },
+  { id: "brh-3", productId: "p-jmb-425", productCode: "LPG-425-JUMBO", productName: "425kg jumbo", basicRate: 0, effectiveFrom: "2026-11-01", updatedBy: "Bachan Admin", updatedAt: "01 Nov 2026", notes: "Initial Approved Master Rate" },
+  { id: "brh-4", productId: "p-nno-190", productCode: "LPG-190-NANO", productName: "19kg nano cut", basicRate: 0, effectiveFrom: "2026-11-01", updatedBy: "Bachan Admin", updatedAt: "01 Nov 2026", notes: "Initial Approved Master Rate" },
+  { id: "brh-5", productId: "p-xtj-190", productCode: "LPG-190-XTRATEJ", productName: "19 kg extra tej", basicRate: 0, effectiveFrom: "2026-11-01", updatedBy: "Bachan Admin", updatedAt: "01 Nov 2026", notes: "Initial Approved Master Rate" },
+  { id: "brh-6", productId: "p-nrm-190", productCode: "LPG-190-NORMAL", productName: "19 kg normal", basicRate: 0, effectiveFrom: "2026-11-01", updatedBy: "Bachan Admin", updatedAt: "01 Nov 2026", notes: "Initial Approved Master Rate" },
+];
 
 // Map real commercial records from client's 23.xlsx register
 export const INITIAL_REAL_CUSTOMERS: Customer[] = (realCommercialData as any[]).map((r, idx) => ({
   id: String(idx + 1),
   code: r.consumer_number || `CX-${String(idx + 1).padStart(7, "0")}`,
+  sap_code: r.sap_code || (idx < 25 ? `SAP-IND-${String(100000 + idx)}` : undefined),
   name: r.name || "Commercial Consumer",
   business: r.name || "Commercial Consumer",
   category: "commercial",
@@ -432,6 +491,7 @@ export const INITIAL_REAL_CUSTOMERS: Customer[] = (realCommercialData as any[]).
   payment_tenure_days: 15,
   payment_terms: "15 Days",
   outstanding: null,
+  advance_balance: 0,
   overdue: null,
   last_payment: null,
   last_payment_date: "—",
@@ -492,6 +552,7 @@ interface ERPStore {
 
   customers: Customer[];
   products: CylinderProduct[];
+  basicRateHistory: BasicRateHistoryItem[];
   customerRates: CustomerRate[];
   rateChangeRequests: RateChangeRequest[];
   cylinderExchangeLedger: CylinderExchangeRecord[];
@@ -518,6 +579,7 @@ interface ERPStore {
   updateCustomer: (id: string, updates: Partial<Customer>) => void;
   deleteCustomer: (id: string) => void;
   getCustomer: (id: string) => Customer | undefined;
+  getCustomerConsumptionAnalytics: (customerId: string) => ConsumptionMetrics;
 
   // Customer Tenure & Credit
   updateCustomerTenureAndCredit: (customerId: string, tenureDays: number, creditLimit: number | null) => void;
@@ -532,14 +594,15 @@ interface ERPStore {
   // Empty Cylinder Exchange
   recordEmptyReturn: (data: { customerId: string; productId?: string; productName: string; emptyReceived: number; returnDate: string; refNum?: string; remarks?: string; recordedBy?: string }) => CylinderExchangeRecord;
 
-  // Product Actions
+  // Product & Basic Rate Master Actions
   addProduct: (prod: Omit<CylinderProduct, "id">) => CylinderProduct;
   updateProduct: (id: string, updates: Partial<CylinderProduct>) => void;
   toggleProduct: (id: string) => void;
+  updateBasicRate: (data: { productId: string; basicRate: number; effectiveFrom: string; notes?: string; updatedBy?: string }) => void;
 
   // Customer Rate Actions
   setCustomerRate: (rate: Omit<CustomerRate, "id">) => void;
-  getApplicableRate: (customerId: string, productId: string) => { rate: number; isConfigured: boolean };
+  getApplicableRate: (customerId: string, productId: string) => { rate: number; isConfigured: boolean; source: "customer" | "standard" | "none" };
   isRateConfigured: (customerId: string, productId: string) => boolean;
 
   // Rate Change Request Workflow
@@ -555,6 +618,9 @@ interface ERPStore {
     unitRate?: number;
     deliveryDate?: string;
     remarks?: string;
+    sapCode?: string;
+    qtyIssued?: number;
+    emptyReceivedOnOrder?: number;
   }) => Order;
   updateOrderStatus: (orderId: string, status: Order["status"]) => void;
 
@@ -565,6 +631,16 @@ interface ERPStore {
   // Invoicing & Financial Actions (18% GST breakdown)
   postInvoice: (invoiceData: { orderId: string; dueDate?: string }) => Invoice;
   recordPayment: (data: {
+    customerId: string;
+    amount: number;
+    date: string;
+    method: PaymentReceipt["method"];
+    ref?: string;
+    remarks?: string;
+    receivedBy?: string;
+    isAdvance?: boolean;
+  }) => PaymentReceipt;
+  recordAdvancePayment: (data: {
     customerId: string;
     amount: number;
     date: string;
@@ -597,6 +673,7 @@ export const useERPStore = create<ERPStore>()(
 
       customers: INITIAL_REAL_CUSTOMERS,
       products: ALL_PRODUCTS_INITIAL,
+      basicRateHistory: INITIAL_BASIC_RATE_HISTORY,
       customerRates: [],
       rateChangeRequests: [],
       cylinderExchangeLedger: [],
@@ -699,6 +776,106 @@ export const useERPStore = create<ERPStore>()(
 
       getCustomer: (id) => {
         return get().customers.find((c) => c.id === id || c.code === id);
+      },
+
+      getCustomerConsumptionAnalytics: (customerId) => {
+        const cust = get().customers.find((c) => c.id === customerId || c.code === customerId);
+        if (!cust) {
+          return {
+            totalDeliveredCylinders: 0,
+            deliveredByProduct: [],
+            totalDeliveredKg: 0,
+            averageDailyConsumption: 0,
+            averageWeeklyConsumption: 0,
+            averageMonthlyConsumption: 0,
+            averageOrderQty: 0,
+            averageDaysBetweenOrders: 0,
+            orderCount: 0,
+            hasSufficientData: false,
+          };
+        }
+
+        const customerOrders = get().orders.filter(
+          (o) => (o.customerId === cust.id || o.customerCode === cust.code) && o.status !== "cancelled"
+        );
+        const customerDeliveries = get().deliveries.filter(
+          (d) => (d.customerId === cust.id || d.customerCode === cust.code) && d.status === "delivered"
+        );
+
+        // Group deliveries by product
+        const productMap: Record<string, { qty: number; equivalentKg: number }> = {};
+        customerDeliveries.forEach((d) => {
+          const pName = d.product;
+          const qty = d.qty;
+          let unitKg = 19.0;
+          if (pName.includes("47.5")) unitKg = 47.5;
+          else if (pName.includes("425")) unitKg = 425.0;
+          else if (pName.includes("19")) unitKg = 19.0;
+          else if (pName.includes("14.2")) unitKg = 14.2;
+
+          if (!productMap[pName]) productMap[pName] = { qty: 0, equivalentKg: 0 };
+          productMap[pName].qty += qty;
+          productMap[pName].equivalentKg += qty * unitKg;
+        });
+
+        const deliveredByProduct = Object.entries(productMap).map(([productName, data]) => ({
+          productName,
+          qty: data.qty,
+          equivalentKg: data.equivalentKg,
+        }));
+
+        const totalDeliveredCylinders = deliveredByProduct.reduce((s, p) => s + p.qty, 0);
+        const totalDeliveredKg = deliveredByProduct.reduce((s, p) => s + p.equivalentKg, 0);
+
+        const orderCount = customerOrders.length;
+        const totalOrderedQty = customerOrders.reduce((s, o) => s + o.totalQty, 0);
+        const averageOrderQty = orderCount > 0 ? Math.round((totalOrderedQty / orderCount) * 10) / 10 : 0;
+
+        // Days between orders calculation
+        let averageDaysBetweenOrders = 0;
+        if (customerOrders.length >= 2) {
+          const dates = customerOrders
+            .map((o) => new Date(o.date).getTime())
+            .filter((t) => !isNaN(t))
+            .sort((a, b) => a - b);
+          if (dates.length >= 2) {
+            const spanDays = (dates[dates.length - 1] - dates[0]) / (1000 * 3600 * 24);
+            averageDaysBetweenOrders = Math.round((spanDays / (dates.length - 1)) * 10) / 10;
+          }
+        }
+
+        // Daily consumption calculation
+        let averageDailyConsumption = 0;
+        if (averageDaysBetweenOrders > 0 && averageOrderQty > 0) {
+          averageDailyConsumption = Math.round((averageOrderQty / averageDaysBetweenOrders) * 10) / 10;
+        } else if (cust.ordering_frequency && cust.ordering_frequency !== "not_configured") {
+          const intervalDays =
+            cust.ordering_frequency === "daily" ? 1 :
+            cust.ordering_frequency === "every_2_days" ? 2 :
+            cust.ordering_frequency === "every_3_days" ? 3 :
+            cust.ordering_frequency === "weekly" ? 7 : (cust.custom_interval_days || 1);
+          const baseQty = averageOrderQty || cust.last_order_qty || 10;
+          averageDailyConsumption = Math.round((baseQty / intervalDays) * 10) / 10;
+        }
+
+        const averageWeeklyConsumption = Math.round(averageDailyConsumption * 7 * 10) / 10;
+        const averageMonthlyConsumption = Math.round(averageDailyConsumption * 30 * 10) / 10;
+
+        return {
+          totalDeliveredCylinders,
+          deliveredByProduct,
+          totalDeliveredKg,
+          averageDailyConsumption,
+          averageWeeklyConsumption,
+          averageMonthlyConsumption,
+          averageOrderQty,
+          averageDaysBetweenOrders,
+          orderCount,
+          lastOrderDate: cust.last_order_date || cust.last_supply,
+          lastSupplyDate: cust.last_supply,
+          expectedNextOrderDate: cust.expected_next_order_date,
+          hasSufficientData: orderCount > 0 || totalDeliveredCylinders > 0,
+        };
       },
 
       // ── TENURE & CREDIT LIMIT ──
@@ -1003,8 +1180,45 @@ export const useERPStore = create<ERPStore>()(
         }));
       },
 
+      updateBasicRate: ({ productId, basicRate, effectiveFrom, notes, updatedBy }) => {
+        const prod = get().products.find((p) => p.id === productId);
+        if (!prod) throw new Error("Product not found.");
+
+        const historyItem: BasicRateHistoryItem = {
+          id: `brh-${Date.now()}`,
+          productId: prod.id,
+          productCode: prod.code,
+          productName: prod.name,
+          basicRate,
+          effectiveFrom: effectiveFrom || getKolkataDateString(),
+          updatedBy: updatedBy || (get().currentUserRole === "admin" ? "Bachan Admin" : "Staff User"),
+          updatedAt: getKolkataFormattedDate(),
+          notes: notes || "Master basic rate update",
+        };
+
+        set((state) => ({
+          products: state.products.map((p) => (p.id === productId ? { ...p, rate: basicRate } : p)),
+          basicRateHistory: [historyItem, ...state.basicRateHistory],
+          auditLogs: [
+            {
+              id: `a-${Date.now()}`,
+              timestamp: getKolkataFormattedDate(),
+              user: updatedBy || "Bachan Admin",
+              action: "update",
+              resource: `Basic Rate Master: ${prod.name}`,
+              details: `Configured approved basic rate for ${prod.name} (${prod.code}) to ₹${basicRate.toLocaleString("en-IN")}/cylinder (GST 18% exclusive). Effective: ${historyItem.effectiveFrom}`,
+              ip: "127.0.0.1",
+            },
+            ...state.auditLogs,
+          ],
+        }));
+      },
+
       // ── CUSTOMER RATES (Renamed from Contract Rates) ──
       setCustomerRate: (rateData) => {
+        const cust = get().customers.find(c => c.id === rateData.customerId || c.code === rateData.customerCode);
+        const sapCode = rateData.sapCode || cust?.sap_code;
+
         const existingIdx = get().customerRates.findIndex(
           (r) =>
             (r.customerId === rateData.customerId || r.customerCode === rateData.customerCode) &&
@@ -1012,18 +1226,32 @@ export const useERPStore = create<ERPStore>()(
         );
 
         if (existingIdx >= 0) {
+          const oldRate = get().customerRates[existingIdx];
+          const historyEntry = {
+            rate: oldRate.agreedRate,
+            effectiveFrom: oldRate.effectiveFrom,
+            approvedBy: oldRate.approvedBy,
+            changedAt: getKolkataFormattedDate(),
+            notes: "Customer rate revised",
+          };
           const updated = [...get().customerRates];
-          updated[existingIdx] = { ...updated[existingIdx], ...rateData };
+          updated[existingIdx] = {
+            ...oldRate,
+            ...rateData,
+            sapCode,
+            previousRate: oldRate.agreedRate,
+            rateHistory: [historyEntry, ...(oldRate.rateHistory || [])],
+          };
           set((state) => ({
             customerRates: updated,
             auditLogs: [
               {
                 id: `a-${Date.now()}`,
                 timestamp: getKolkataFormattedDate(),
-                user: "Bachan Admin",
+                user: state.currentUserRole === "admin" ? "Bachan Admin" : "Staff User",
                 action: "rate_change",
                 resource: `Customer Rate for ${rateData.customerName}`,
-                details: `Updated basic rate for ${rateData.productName} to ₹${rateData.agreedRate.toLocaleString("en-IN")}/unit (+ 18% GST)`,
+                details: `Updated basic rate for ${rateData.productName} from ₹${oldRate.agreedRate} to ₹${rateData.agreedRate.toLocaleString("en-IN")}/unit (+ 18% GST). Approved by: ${rateData.approvedBy}`,
                 ip: "127.0.0.1",
               },
               ...state.auditLogs,
@@ -1033,6 +1261,17 @@ export const useERPStore = create<ERPStore>()(
           const newRate: CustomerRate = {
             ...rateData,
             id: `rate-${Date.now()}`,
+            sapCode,
+            previousRate: undefined,
+            rateHistory: [
+              {
+                rate: rateData.agreedRate,
+                effectiveFrom: rateData.effectiveFrom,
+                approvedBy: rateData.approvedBy,
+                changedAt: getKolkataFormattedDate(),
+                notes: "Initial customer rate approved",
+              },
+            ],
           };
           set((state) => ({
             customerRates: [...state.customerRates, newRate],
@@ -1057,13 +1296,14 @@ export const useERPStore = create<ERPStore>()(
           (r) => (r.customerId === customerId || r.customerCode === customerId) && r.productId === productId
         );
         if (agreed && agreed.agreedRate > 0) {
-          return { rate: agreed.agreedRate, isConfigured: true };
+          return { rate: agreed.agreedRate, isConfigured: true, source: "customer" as const };
         }
+        const allowFallback = get().settings.allowStandardRateFallback !== false;
         const prod = get().products.find((p) => p.id === productId);
-        if (prod && prod.rate > 0) {
-          return { rate: prod.rate, isConfigured: true };
+        if (allowFallback && prod && prod.rate > 0) {
+          return { rate: prod.rate, isConfigured: true, source: "standard" as const };
         }
-        return { rate: 0, isConfigured: false };
+        return { rate: 0, isConfigured: false, source: "none" as const };
       },
 
       isRateConfigured: (customerId, productId) => {
@@ -1193,7 +1433,7 @@ export const useERPStore = create<ERPStore>()(
       },
 
       // ── ORDERS (18% GST EXCLUSIVE) ──
-      createOrder: ({ customerId, productId, qty, unitRate, deliveryDate, remarks }) => {
+      createOrder: ({ customerId, productId, qty, unitRate, deliveryDate, remarks, sapCode, qtyIssued, emptyReceivedOnOrder }) => {
         const customer = get().customers.find((c) => c.id === customerId || c.code === customerId);
         const prod = get().products.find((p) => p.id === productId);
 
@@ -1202,6 +1442,11 @@ export const useERPStore = create<ERPStore>()(
 
         const agreedRateObj = get().getApplicableRate(customer.id, prod.id);
         const finalBasicRate = unitRate !== undefined ? unitRate : (agreedRateObj.isConfigured ? agreedRateObj.rate : prod.rate);
+
+        // Strict rate check: block confirmation if no approved rate exists
+        if (finalBasicRate <= 0) {
+          throw new Error(`No approved applicable rate exists for ${customer.name} on ${prod.name}. Order cannot be confirmed until an approved Customer Rate or standard Basic Rate is configured.`);
+        }
 
         const subtotal = qty * finalBasicRate; // Taxable Amount
 
@@ -1228,8 +1473,12 @@ export const useERPStore = create<ERPStore>()(
           customerId: customer.id,
           customerName: customer.name,
           customerCode: customer.code,
+          sapCode: sapCode || customer.sap_code,
           date: orderDateStr,
           deliveryDate: deliveryDate || orderDateStr,
+          qtyIssued: qtyIssued || 0,
+          emptyReceivedOnOrder: emptyReceivedOnOrder || 0,
+          emptyPendingSnapshot: customer.empty_cylinders_pending || 0,
           items: [
             {
               productId: prod.id,
@@ -1551,7 +1800,7 @@ export const useERPStore = create<ERPStore>()(
       },
 
       // ── PAYMENTS & RECONCILIATION ──
-      recordPayment: ({ customerId, amount, date, method, ref, remarks, receivedBy }) => {
+      recordPayment: ({ customerId, amount, date, method, ref, remarks, receivedBy, isAdvance }) => {
         const cust = get().customers.find((c) => c.id === customerId || c.code === customerId);
         if (!cust) throw new Error("Customer not found.");
 
@@ -1568,42 +1817,53 @@ export const useERPStore = create<ERPStore>()(
           amount,
           method,
           ref: ref || `REF-${Date.now().toString().slice(-6)}`,
-          remarks: remarks || "",
+          remarks: remarks || (isAdvance ? "Customer Advance Payment" : ""),
           receivedBy: receivedBy || (get().currentUserRole === "admin" ? "Bachan Admin" : "Staff User"),
           status: "cleared",
         };
 
-        const currentBal = cust.outstanding || 0;
-        const newBal = Math.max(0, currentBal - amount);
+        let currentBal = cust.outstanding || 0;
+        let newAdvance = cust.advance_balance || 0;
+        let updatedInvoices = get().invoices;
+
+        if (isAdvance) {
+          newAdvance += amount;
+        } else {
+          // Reconcile open invoices
+          let unallocated = amount;
+          updatedInvoices = get().invoices.map((inv) => {
+            if (inv.customerId === cust.id && inv.outstanding > 0 && unallocated > 0) {
+              const alloc = Math.min(inv.outstanding, unallocated);
+              unallocated -= alloc;
+              const remaining = inv.outstanding - alloc;
+              return {
+                ...inv,
+                paid: inv.paid + alloc,
+                outstanding: remaining,
+                status: (remaining === 0 ? "paid" : "partially_paid") as Invoice["status"],
+              };
+            }
+            return inv;
+          });
+
+          const paidAgainstInvoices = amount - unallocated;
+          currentBal = Math.max(0, currentBal - paidAgainstInvoices);
+          if (unallocated > 0) {
+            newAdvance += unallocated; // Remaining funds become advance credit
+          }
+        }
 
         const ledgerEntry: LedgerEntry = {
           id: `l-${Date.now()}`,
           customerId: cust.id,
           date: newPayment.date,
           ref: num,
-          type: "Receipt Voucher",
-          desc: `Payment received via ${method} (Ref: ${newPayment.ref})${remarks ? ` - ${remarks}` : ""}`,
+          type: isAdvance ? "Advance Receipt" : "Receipt Voucher",
+          desc: `${isAdvance ? "Customer Advance" : "Payment"} received via ${method} (Ref: ${newPayment.ref})${remarks ? ` - ${remarks}` : ""}`,
           debit: 0,
           credit: amount,
-          balance: newBal,
+          balance: currentBal,
         };
-
-        // Reconcile open invoices
-        let unallocated = amount;
-        const updatedInvoices = get().invoices.map((inv) => {
-          if (inv.customerId === cust.id && inv.outstanding > 0 && unallocated > 0) {
-            const alloc = Math.min(inv.outstanding, unallocated);
-            unallocated -= alloc;
-            const remaining = inv.outstanding - alloc;
-            return {
-              ...inv,
-              paid: inv.paid + alloc,
-              outstanding: remaining,
-              status: (remaining === 0 ? "paid" : "partially_paid") as Invoice["status"],
-            };
-          }
-          return inv;
-        });
 
         set((state) => ({
           payments: [newPayment, ...state.payments],
@@ -1613,7 +1873,8 @@ export const useERPStore = create<ERPStore>()(
             c.id === cust.id
               ? {
                   ...c,
-                  outstanding: newBal,
+                  outstanding: currentBal,
+                  advance_balance: newAdvance,
                   last_payment: amount,
                   last_payment_date: newPayment.date,
                   is_financial_configured: true,
@@ -1627,7 +1888,7 @@ export const useERPStore = create<ERPStore>()(
               user: receivedBy || "Staff User",
               action: "payment",
               resource: `Receipt ${num}`,
-              details: `Received ₹${amount.toLocaleString("en-IN")} from ${cust.name} via ${method} (Ref: ${newPayment.ref})`,
+              details: `Received ${isAdvance ? "advance " : ""}₹${amount.toLocaleString("en-IN")} from ${cust.name} via ${method}. Outstanding: ₹${currentBal.toLocaleString("en-IN")}, Advance Credit: ₹${newAdvance.toLocaleString("en-IN")}`,
               ip: "127.0.0.1",
             },
             ...state.auditLogs,
@@ -1635,6 +1896,10 @@ export const useERPStore = create<ERPStore>()(
         }));
 
         return newPayment;
+      },
+
+      recordAdvancePayment: (data) => {
+        return get().recordPayment({ ...data, isAdvance: true });
       },
 
       // ── CREDIT LIMIT ──

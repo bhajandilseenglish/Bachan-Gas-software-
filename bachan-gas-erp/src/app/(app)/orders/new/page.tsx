@@ -1,26 +1,39 @@
 "use client";
-import { useState, useTransition, useEffect, Suspense } from "react";
+import { useState, useTransition, useEffect, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useERPStore } from "@/lib/store";
 import { createOrder as createOrderSupabase } from "@/lib/actions";
-import { AlertTriangle, CheckCircle2, Plus, ShieldCheck, X, ShieldAlert } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Plus, ShieldCheck, X, ShieldAlert, Search, User, CreditCard, Clock, Package, AlertCircle } from "lucide-react";
+
+const INR = (n: number | null | undefined) => {
+  if (n === null || n === undefined) return "Not Configured";
+  return "₹" + Math.round(n).toLocaleString("en-IN");
+};
 
 function NewOrderForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preSelectedCustomerId = searchParams.get("customer_id") || searchParams.get("customerId") || "";
 
-  const { customers, products, customerRates, currentUserRole, setCustomerRate, getApplicableRate, createOrder } = useERPStore();
+  const { customers, products, customerRates, currentUserRole, setCustomerRate, getApplicableRate, createOrder, orders } = useERPStore();
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ type: "error" | "success"; text: string } | null>(null);
 
   const activeProducts = products.filter(p => p.active);
 
+  // Customer Search Query
+  const [custSearch, setCustSearch] = useState("");
   const [customerId, setCustomerId] = useState(preSelectedCustomerId || (customers[0]?.id || ""));
+  const [showCustDropdown, setShowCustDropdown] = useState(false);
+
+  // Order Line States
   const [prodId, setProdId] = useState(activeProducts[0]?.id || "");
   const [qty, setQty] = useState(1);
   const [rate, setRate] = useState(0);
-  const [isCustomerRate, setIsCustomerRate] = useState(false);
+  const [rateSource, setRateSource] = useState<"customer" | "standard" | "none">("none");
+  const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split("T")[0]);
+  const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
+  const [remarks, setRemarks] = useState("");
 
   // Quick Rate Modal
   const [showRateModal, setShowRateModal] = useState(false);
@@ -30,6 +43,20 @@ function NewOrderForm() {
   const selectedCustomer = customers.find(c => c.id === customerId || c.code === customerId);
 
   const isAdmin = currentUserRole === "admin";
+  const projectedOrderNum = `BGS-ORD-${String(orders.length + 1).padStart(5, "0")}`;
+
+  // Filter customers by Name, Business, SAP Code, Consumer Code, Mobile
+  const matchingCustomers = useMemo(() => {
+    if (!custSearch.trim()) return customers.slice(0, 50);
+    const q = custSearch.toLowerCase();
+    return customers.filter(c =>
+      c.name.toLowerCase().includes(q) ||
+      c.business.toLowerCase().includes(q) ||
+      c.code.toLowerCase().includes(q) ||
+      (c.sap_code && c.sap_code.toLowerCase().includes(q)) ||
+      (c.mobile && c.mobile.includes(q))
+    ).slice(0, 50);
+  }, [customers, custSearch]);
 
   // Update rate whenever customer or product changes
   useEffect(() => {
@@ -37,14 +64,14 @@ function NewOrderForm() {
       const rateObj = getApplicableRate(customerId, prodId);
       if (rateObj.isConfigured) {
         setRate(rateObj.rate);
-        setIsCustomerRate(true);
+        setRateSource(rateObj.source);
       } else {
         setRate(prod ? prod.rate : 0);
-        setIsCustomerRate(false);
+        setRateSource("none");
       }
     } else if (prod) {
       setRate(prod.rate);
-      setIsCustomerRate(false);
+      setRateSource("none");
     }
   }, [customerId, prodId, getApplicableRate, prod, customerRates]);
 
@@ -64,10 +91,11 @@ function NewOrderForm() {
   // Credit Limit & Exposure Check
   const currentOutstanding = selectedCustomer?.outstanding || 0;
   const creditLimit = selectedCustomer?.credit_limit;
+  const availableCredit = creditLimit !== null && creditLimit !== undefined ? Math.max(0, creditLimit - currentOutstanding) : null;
   const projectedExposure = currentOutstanding + total;
   const isExceedingCredit = typeof creditLimit === "number" && creditLimit > 0 && projectedExposure > creditLimit;
 
-  // Handle Quick Rate Configuration
+  // Quick Customer Rate Modal Save (Admin only)
   const handleSaveRate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCustomer || !prod) return;
@@ -78,57 +106,54 @@ function NewOrderForm() {
       customerId: selectedCustomer.id,
       customerName: selectedCustomer.name,
       customerCode: selectedCustomer.code,
+      sapCode: selectedCustomer.sap_code,
       productId: prod.id,
       productName: prod.name,
       defaultRate: prod.rate,
       agreedRate: agreedNum,
-      effectiveFrom: new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }),
+      effectiveFrom: new Date().toISOString().split("T")[0],
       validTill: "31 Mar 2027",
       approvedBy: "Bachan Admin"
     });
 
     setRate(agreedNum);
-    setIsCustomerRate(true);
+    setRateSource("customer");
     setShowRateModal(false);
-    setMsg({ type: "success", text: `Approved customer rate of ₹${agreedNum}/unit configured for ${selectedCustomer.name}. You can now proceed with booking.` });
+    setMsg({ type: "success", text: `Customer rate of ₹${agreedNum.toLocaleString("en-IN")}/unit configured for ${selectedCustomer.name}.` });
   };
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMsg(null);
-    const fd = new FormData(e.currentTarget);
 
-    if (!customerId) {
+    if (!selectedCustomer) {
       setMsg({ type: "error", text: "Please select a valid customer." });
       return;
     }
 
-    if (!isCustomerRate && rate <= 0) {
+    if (rate <= 0) {
       setMsg({
         type: "error",
-        text: "Rate Not Configured: You must configure an approved commercial customer rate for this product before booking."
+        text: "Rate Not Configured: No approved applicable rate exists for this product. Order blocked until rate is configured."
       });
       return;
     }
 
     startTransition(async () => {
       try {
-        try {
-          await createOrderSupabase(fd);
-        } catch {
-          // graceful fallback
-        }
-
         const newOrder = createOrder({
-          customerId,
+          customerId: selectedCustomer.id,
           productId: prod.id,
           qty,
           unitRate: rate,
-          deliveryDate: (fd.get("requested_delivery_date") as string) || new Date().toISOString().split("T")[0],
-          remarks: (fd.get("remarks") as string) || "",
+          deliveryDate,
+          remarks,
+          sapCode: selectedCustomer.sap_code,
+          qtyIssued: 0, // Not issued until confirmed delivery
+          emptyReceivedOnOrder: 0,
         });
 
-        setMsg({ type: "success", text: `Order #${newOrder.num} created successfully!` });
+        setMsg({ type: "success", text: `Order #${newOrder.num} booked successfully with 18% GST!` });
         setTimeout(() => {
           router.push(`/orders/${newOrder.id}`);
         }, 800);
@@ -139,10 +164,13 @@ function NewOrderForm() {
   }
 
   return (
-    <div style={{ maxWidth: 840, margin: "0 auto", paddingBottom: 40 }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 className="page-title">Create Commercial LPG Order</h1>
-        <p className="page-sub">Book and schedule deliveries with 18% GST & customer-specific rates.</p>
+    <div style={{ maxWidth: 960, margin: "0 auto", paddingBottom: 40 }}>
+      {/* Header */}
+      <div style={{ marginBottom: 20 }}>
+        <h1 className="page-title">Commercial LPG Order Booking</h1>
+        <p className="page-sub">
+          Official Bachan Gas Service order entry · 18% statutory GST calculated dynamically · Strictly 6 active LPG products
+        </p>
       </div>
 
       {msg && (
@@ -151,33 +179,147 @@ function NewOrderForm() {
           border: `1.5px solid ${msg.type === "error" ? "#fca5a5" : "#86efac"}`,
           borderRadius: 10, padding: 14, marginBottom: 16,
           color: msg.type === "error" ? "#b91c1c" : "#15803d",
-          fontSize: 13, fontWeight: 600,
+          fontSize: 13, fontWeight: 700,
         }}>
           {msg.type === "success" ? "✅ " : "❌ "}{msg.text}
         </div>
       )}
 
-      {selectedCustomer && (
-        <div style={{
-          background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10,
-          padding: "12px 16px", marginBottom: 18, display: "flex", alignItems: "center",
-          justifyContent: "space-between", flexWrap: "wrap", gap: 10, fontSize: 13
-        }}>
-          <div>
-            <strong>{selectedCustomer.name}</strong> ({selectedCustomer.code})
-            <span style={{ color: "#64748b", marginLeft: 8 }}>{selectedCustomer.city} · {selectedCustomer.category.toUpperCase()}</span>
-          </div>
-          <div style={{ display: "flex", gap: 16, fontSize: 12 }}>
-            <span>Outstanding: <strong style={{ color: (selectedCustomer.outstanding || 0) > 0 ? "#dc2626" : "#16a34a" }}>
-              {selectedCustomer.outstanding !== null ? `₹${selectedCustomer.outstanding.toLocaleString("en-IN")}` : "Not Yet Configured"}
-            </strong></span>
-            <span>Credit Limit: <strong>
-              {selectedCustomer.credit_limit !== null ? `₹${selectedCustomer.credit_limit.toLocaleString("en-IN")}` : "Not Configured"}
-            </strong></span>
-            <span>Payment Tenure: <strong>{selectedCustomer.payment_tenure_days || 15} Days</strong></span>
-          </div>
+      {/* Customer Search & Quick Select */}
+      <div className="card" style={{ marginBottom: 16, padding: 20 }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: "#1e293b", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 10 }}>
+          Customer Selection (Search by Name, Business, SAP Code, Consumer #, Mobile)
         </div>
-      )}
+        <div style={{ position: "relative" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "9px 14px", background: "#f8fafc" }}>
+            <Search size={16} color="#94a3b8" />
+            <input
+              type="text"
+              placeholder="Type customer name, business, SAP code (e.g. SAP-IND-100001), CX consumer #, or phone..."
+              value={custSearch}
+              onFocus={() => setShowCustDropdown(true)}
+              onChange={e => {
+                setCustSearch(e.target.value);
+                setShowCustDropdown(true);
+              }}
+              style={{ width: "100%", border: "none", outline: "none", fontSize: 13.5, background: "transparent", color: "#1e293b" }}
+            />
+            {custSearch && (
+              <button type="button" onClick={() => setCustSearch("")} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8" }}>
+                <X size={16} />
+              </button>
+            )}
+          </div>
+
+          {showCustDropdown && (
+            <div style={{
+              position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100,
+              background: "#fff", border: "1.5px solid #cbd5e1", borderRadius: 8,
+              marginTop: 4, maxHeight: 260, overflowY: "auto", boxShadow: "0 10px 25px rgba(0,0,0,.1)"
+            }}>
+              {matchingCustomers.length === 0 ? (
+                <div style={{ padding: 14, fontSize: 12.5, color: "#64748b", textAlign: "center" }}>
+                  No customer matching &quot;{custSearch}&quot;
+                </div>
+              ) : (
+                matchingCustomers.map(c => (
+                  <div
+                    key={c.id}
+                    onClick={() => {
+                      setCustomerId(c.id);
+                      setCustSearch("");
+                      setShowCustDropdown(false);
+                    }}
+                    style={{
+                      padding: "10px 14px", borderBottom: "1px solid #f1f5f9", cursor: "pointer",
+                      background: c.id === customerId ? "#eff6ff" : "transparent"
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                    onMouseLeave={e => (e.currentTarget.style.background = c.id === customerId ? "#eff6ff" : "transparent")}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <strong style={{ fontSize: 13, color: "#1e293b" }}>{c.name}</strong>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "#1e3a8a", fontFamily: "monospace" }}>{c.code}</span>
+                    </div>
+                    <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 2, display: "flex", gap: 12 }}>
+                      {c.sap_code && <span>SAP: <strong style={{ color: "#0891b2" }}>{c.sap_code}</strong></span>}
+                      <span>Mobile: {c.mobile}</span>
+                      <span>City: {c.city}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Selected Customer Commercial Master Display (Requirement #6) */}
+        {selectedCustomer && (
+          <div style={{ marginTop: 16, background: "#f8fafc", border: "1.5px solid #e2e8f0", borderRadius: 10, padding: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8, borderBottom: "1px solid #e2e8f0", paddingBottom: 10 }}>
+              <div>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#2563eb", background: "#eff6ff", padding: "2px 8px", borderRadius: 4 }}>
+                  {selectedCustomer.category.toUpperCase()} ACCOUNT
+                </span>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#1e293b", marginTop: 4 }}>
+                  {selectedCustomer.name}
+                </div>
+                <div style={{ fontSize: 12, color: "#475569" }}>
+                  Consumer #: <strong>{selectedCustomer.code}</strong> • SAP Code: <strong style={{ color: selectedCustomer.sap_code ? "#0891b2" : "#94a3b8" }}>{selectedCustomer.sap_code || "Not Configured"}</strong>
+                </div>
+              </div>
+              <div style={{ textAlign: "right", fontSize: 12, color: "#64748b" }}>
+                <div>Phone: <strong>{selectedCustomer.mobile}</strong></div>
+                <div>Supply State: <strong>{selectedCustomer.state || "Punjab"}</strong> ({isInterState ? "Inter-state IGST 18%" : "Intra-state CGST/SGST"})</div>
+              </div>
+            </div>
+
+            {/* Commercial Parameters Grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginTop: 12 }}>
+              <div style={{ background: "#fff", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Credit Limit</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "#1e293b", marginTop: 2 }}>{INR(selectedCustomer.credit_limit)}</div>
+              </div>
+              <div style={{ background: "#fff", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Available Credit</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: availableCredit !== null && availableCredit > 0 ? "#16a34a" : "#dc2626", marginTop: 2 }}>
+                  {INR(availableCredit)}
+                </div>
+              </div>
+              <div style={{ background: "#fff", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Current Outstanding</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: (selectedCustomer.outstanding || 0) > 0 ? "#dc2626" : "#64748b", marginTop: 2 }}>
+                  {INR(selectedCustomer.outstanding)}
+                </div>
+              </div>
+              <div style={{ background: "#fff", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Advance Balance</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: (selectedCustomer.advance_balance || 0) > 0 ? "#16a34a" : "#64748b", marginTop: 2 }}>
+                  {INR(selectedCustomer.advance_balance || 0)}
+                </div>
+              </div>
+              <div style={{ background: "#fff", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Payment Tenure</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "#2563eb", marginTop: 2 }}>
+                  {selectedCustomer.payment_tenure_days ?? 15} Days
+                </div>
+              </div>
+              <div style={{ background: "#fff", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Empties Pending</div>
+                <div style={{ fontSize: 14, fontWeight: 900, color: (selectedCustomer.empty_cylinders_pending || 0) > 0 ? "#ea580c" : "#16a34a", marginTop: 2 }}>
+                  {selectedCustomer.empty_cylinders_pending || 0} cyl
+                </div>
+              </div>
+              <div style={{ background: "#fff", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Last Order Date</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#475569", marginTop: 2 }}>
+                  {selectedCustomer.last_order_date || selectedCustomer.last_supply || "None"}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Credit Limit Exposure Alert */}
       {isExceedingCredit && (
@@ -187,19 +329,19 @@ function NewOrderForm() {
         }}>
           <ShieldAlert size={22} color="#dc2626" style={{ flexShrink: 0 }} />
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#991b1b" }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#991b1b" }}>
               Credit Exposure Limit Warning
             </div>
             <div style={{ fontSize: 12, color: "#b91c1c", marginTop: 2 }}>
               Projected customer balance (₹{projectedExposure.toLocaleString("en-IN")}) will exceed permitted credit limit of ₹{creditLimit?.toLocaleString("en-IN")}.
-              {isAdmin ? " As Admin, you may proceed after verifying payment authorization." : " Admin approval policy applies."}
+              {isAdmin ? " As Admin, you may approve following business policy." : " Staff must obtain Admin credit authorization."}
             </div>
           </div>
         </div>
       )}
 
       {/* Rate Warning Banner if unconfigured */}
-      {!isCustomerRate && (
+      {rateSource === "none" && rate <= 0 && (
         <div style={{
           background: "#fffbeb", border: "1.5px solid #fde68a", borderRadius: 10,
           padding: "14px 18px", marginBottom: 18, display: "flex", alignItems: "center",
@@ -208,11 +350,11 @@ function NewOrderForm() {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <AlertTriangle size={20} color="#d97706" />
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#92400e" }}>
-                Commercial Customer Rate Not Configured
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#92400e" }}>
+                No Approved Rate Configured
               </div>
               <div style={{ fontSize: 12, color: "#b45309", marginTop: 2 }}>
-                Orders require an approved basic rate per cylinder. Configure the customer rate to proceed.
+                Orders strictly require an approved Customer Rate or standard Basic Rate. Order cannot be confirmed until configured.
               </div>
             </div>
           </div>
@@ -229,7 +371,7 @@ function NewOrderForm() {
                 display: "inline-flex", alignItems: "center", gap: 5
               }}
             >
-              <Plus size={14} /> Configure Customer Rate
+              <Plus size={14} /> Authorize Customer Rate
             </button>
           ) : (
             <button
@@ -246,68 +388,64 @@ function NewOrderForm() {
         </div>
       )}
 
+      {/* Main Order Form */}
       <form onSubmit={handleSubmit}>
-        {/* Customer & Dates */}
+        {/* Order Meta & Schedule */}
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-header"><span className="card-title">Customer & Schedule</span></div>
-          <div style={{ padding: 20, display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", gap: 16 }}>
-            <Lbl label="Select Customer *">
-              <select
-                name="customer_id"
-                required
-                style={sel}
-                value={customerId}
-                onChange={e => setCustomerId(e.target.value)}
-              >
-                <option value="">— Select Customer —</option>
-                {customers.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.code}) - {c.city}
-                  </option>
-                ))}
-              </select>
-            </Lbl>
-            <Lbl label="Order Date *">
+          <div className="card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span className="card-title">Order Information & Schedule</span>
+            <span style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 800, color: "#1e3a8a", background: "#dbeafe", padding: "2px 8px", borderRadius: 4 }}>
+              {projectedOrderNum}
+            </span>
+          </div>
+          <div style={{ padding: 20, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 5 }}>Order Date *</label>
               <input
-                name="order_date"
                 type="date"
                 required
-                defaultValue={new Date().toISOString().split("T")[0]}
-                style={inp}
+                value={orderDate}
+                onChange={e => setOrderDate(e.target.value)}
+                style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13 }}
               />
-            </Lbl>
-            <Lbl label="Requested Delivery Date">
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 5 }}>Requested Supply Delivery Date *</label>
               <input
-                name="requested_delivery_date"
                 type="date"
-                defaultValue={new Date().toISOString().split("T")[0]}
-                style={inp}
+                required
+                value={deliveryDate}
+                onChange={e => setDeliveryDate(e.target.value)}
+                style={{ width: "100%", padding: "8px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13 }}
               />
-            </Lbl>
+            </div>
           </div>
         </div>
 
-        {/* Cylinder & Pricing (Exactly Six Active Products) */}
+        {/* Cylinder & Pricing (Strictly 6 Active LPG Products) */}
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span className="card-title">LPG Product & Basic Pricing</span>
+            <span className="card-title">LPG Product & Basic Pricing (Exclusive of 18% GST)</span>
             <span style={{
               fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 100,
-              background: isCustomerRate ? "#dcfce7" : "#fee2e2",
-              color: isCustomerRate ? "#15803d" : "#dc2626"
+              background: rateSource === "customer" ? "#dcfce7" : rateSource === "standard" ? "#eff6ff" : "#fee2e2",
+              color: rateSource === "customer" ? "#15803d" : rateSource === "standard" ? "#1e40af" : "#dc2626"
             }}>
-              {isCustomerRate ? "✓ Approved Customer Rate" : "⚠️ Rate Unconfigured"}
+              {rateSource === "customer" ? "✓ Approved Customer Rate" : rateSource === "standard" ? "ℹ️ Basic Master Rate" : "⚠️ Rate Unconfigured"}
             </span>
           </div>
+
           <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
-              <Lbl label="Active LPG Product Line *">
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 5 }}>
+                  Active LPG Product Line (Approved Master 6) *
+                </label>
                 <select
-                  name="product_id"
                   required
-                  style={sel}
                   value={prodId}
                   onChange={e => setProdId(e.target.value)}
+                  style={{ width: "100%", padding: "9px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, background: "#f8fafc", outline: "none" }}
                 >
                   {activeProducts.map(p => (
                     <option key={p.id} value={p.id}>
@@ -315,42 +453,61 @@ function NewOrderForm() {
                     </option>
                   ))}
                 </select>
-              </Lbl>
-              <Lbl label="Quantity (Cylinders / Units) *">
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 5 }}>
+                  Quantity Ordered (Cylinders / Units) *
+                </label>
                 <input
-                  name="quantity"
                   type="number"
                   min={1}
                   required
                   value={qty}
                   onChange={e => setQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                  style={inp}
+                  style={{ width: "100%", padding: "9px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, outline: "none", fontWeight: 700 }}
                 />
-              </Lbl>
+              </div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.2fr 1.2fr", gap: 16 }}>
-              <Lbl label="Basic Rate (₹ per Cylinder / Unit)">
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 5 }}>
+                  Basic Rate (₹ per Cylinder / Unit) *
+                </label>
                 <input
-                  name="unit_rate"
                   type="number"
                   step="0.01"
-                  readOnly={!isAdmin && isCustomerRate}
+                  readOnly={!isAdmin && rateSource === "customer"}
                   value={rate}
                   onChange={e => setRate(parseFloat(e.target.value) || 0)}
-                  style={{ ...inp, background: !isCustomerRate ? "#fee2e2" : "var(--bg)" }}
+                  style={{
+                    width: "100%", padding: "9px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13,
+                    background: rate <= 0 ? "#fee2e2" : "#f8fafc", fontWeight: 800, color: "#1e293b"
+                  }}
                 />
-              </Lbl>
-              <Lbl label="Taxable Subtotal (Exclusive)">
-                <div style={{ ...inp, background: "var(--bg)", fontWeight: 700, display: "flex", alignItems: "center" }}>
+                <span style={{ fontSize: 11, color: "#64748b", marginTop: 3, display: "block" }}>
+                  GST 18% exclusive basic rate
+                </span>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 5 }}>
+                  Taxable Subtotal (Basic Amount)
+                </label>
+                <div style={{ width: "100%", padding: "9px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 14, fontWeight: 800, background: "#f8fafc", color: "#1e293b" }}>
                   ₹{subtotal.toLocaleString("en-IN")}
                 </div>
-              </Lbl>
-              <Lbl label="Statutory GST (18%)">
-                <div style={{ ...inp, background: "#fff7ed", color: "var(--orange)", fontWeight: 800, display: "flex", alignItems: "center" }}>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 5 }}>
+                  Statutory GST (18%)
+                </label>
+                <div style={{ width: "100%", padding: "9px 12px", border: "1.5px solid #fed7aa", borderRadius: 8, fontSize: 14, fontWeight: 800, background: "#fff7ed", color: "#ea580c" }}>
                   ₹{taxAmt.toLocaleString("en-IN")}
                 </div>
-              </Lbl>
+              </div>
             </div>
 
             {/* GST breakdown pills */}
@@ -363,33 +520,38 @@ function NewOrderForm() {
                   <span>·</span>
                   <span>SGST 9%: <strong>₹{sgstAmt.toLocaleString("en-IN")}</strong></span>
                   <span>·</span>
-                  <span style={{ color: "#16a34a", fontWeight: 600 }}>Intra-State Supply (Punjab)</span>
+                  <span style={{ color: "#16a34a", fontWeight: 700 }}>Intra-State Supply (Punjab)</span>
                 </>
               )}
             </div>
           </div>
         </div>
 
-        {/* Order Summary */}
+        {/* Operational Traceability Notice (Requirement #6 & #8) */}
+        <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", padding: 12, borderRadius: 8, fontSize: 12, color: "#166534", marginBottom: 16 }}>
+          <strong>Exchange Liability Rule:</strong> Placing this order records an empty cylinder snapshot of <strong>{selectedCustomer?.empty_cylinders_pending || 0} pending cylinders</strong>. Customer empty liability will not increase until filled cylinders are physically issued and confirmed upon delivery.
+        </div>
+
+        {/* Order Summary & Financials */}
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-header"><span className="card-title">Order Financial Summary</span></div>
+          <div className="card-header"><span className="card-title">Order Financial Billing Summary</span></div>
           <div style={{ padding: "14px 20px" }}>
             {[
               ["Product Line", prod?.name],
-              ["Quantity", `${qty} cylinder${qty > 1 ? "s" : ""} / unit${qty > 1 ? "s" : ""}`],
-              ["Basic Rate", isCustomerRate ? `₹${rate.toLocaleString("en-IN")} / cylinder` : "Unconfigured"],
-              ["Taxable Amount", `₹${subtotal.toLocaleString("en-IN")}`],
-              ["Total GST (18%)", `₹${taxAmt.toLocaleString("en-IN")}`],
-              ["Final Bill Amount", `₹${total.toLocaleString("en-IN")}`],
+              ["Quantity Ordered", `${qty} cylinder${qty > 1 ? "s" : ""} / unit${qty > 1 ? "s" : ""}`],
+              ["Basic Rate per Unit", rate > 0 ? `₹${rate.toLocaleString("en-IN")} (GST Exclusive)` : "Unconfigured"],
+              ["Taxable Basic Subtotal", `₹${subtotal.toLocaleString("en-IN")}`],
+              ["Total Statutory GST (18%)", `₹${taxAmt.toLocaleString("en-IN")}`],
+              ["Final Payable Invoice Total", `₹${total.toLocaleString("en-IN")}`],
             ].map(([k, v], i) => (
               <div key={k} style={{
-                display: "flex", justifyContent: "space-between", padding: "6px 0",
-                fontSize: 13, borderBottom: i < 5 ? "1px solid var(--border)" : "none",
-                fontWeight: i === 5 ? 800 : 400,
-                color: i === 5 ? "var(--orange)" : "var(--fg)",
+                display: "flex", justifyContent: "space-between", padding: "7px 0",
+                fontSize: 13, borderBottom: i < 5 ? "1px solid #e2e8f0" : "none",
+                fontWeight: i === 5 ? 900 : 400,
+                color: i === 5 ? "#1e3a8a" : "#1e293b",
               }}>
                 <span>{k}</span>
-                <span style={{ fontWeight: i === 5 ? 800 : 600 }}>{v}</span>
+                <span style={{ fontWeight: i === 5 ? 900 : 700, fontSize: i === 5 ? 16 : 13 }}>{v}</span>
               </div>
             ))}
           </div>
@@ -397,27 +559,30 @@ function NewOrderForm() {
 
         {/* Delivery Remarks */}
         <div className="card" style={{ marginBottom: 24 }}>
-          <div className="card-header"><span className="card-title">Delivery Instructions</span></div>
+          <div className="card-header"><span className="card-title">Delivery Instructions & Gate Notes</span></div>
           <div style={{ padding: 20 }}>
-            <Lbl label="Dispatch Remarks / Gate Instructions">
-              <textarea
-                name="remarks"
-                rows={2}
-                placeholder="e.g. Priority delivery, driver to collect matching empty cylinders..."
-                style={{
-                  width: "100%", border: "1.5px solid var(--border)", borderRadius: 8,
-                  padding: "9px 13px", fontSize: 13, color: "var(--fg)", background: "var(--bg)",
-                  outline: "none", resize: "vertical", fontFamily: "inherit"
-                }}
-              />
-            </Lbl>
+            <textarea
+              rows={2}
+              placeholder="e.g. Collect matching empty cylinders on delivery, security gate clearance, delivery contact person..."
+              value={remarks}
+              onChange={e => setRemarks(e.target.value)}
+              style={{
+                width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8,
+                padding: "9px 13px", fontSize: 13, color: "#1e293b", outline: "none", resize: "vertical"
+              }}
+            />
           </div>
         </div>
 
         {/* Actions */}
         <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
           <button type="button" className="btn btn-ghost" onClick={() => router.back()}>Cancel</button>
-          <button type="submit" className="btn btn-orange" disabled={pending}>
+          <button
+            type="submit"
+            className="btn btn-orange"
+            disabled={pending || rate <= 0}
+            style={{ opacity: rate <= 0 ? 0.6 : 1, cursor: rate <= 0 ? "not-allowed" : "pointer" }}
+          >
             {pending ? "Confirming Order..." : `Book Supply Order (₹${total.toLocaleString("en-IN")})`}
           </button>
         </div>
@@ -430,7 +595,7 @@ function NewOrderForm() {
           display: "flex", alignItems: "center", justifyContent: "center", padding: 20
         }}>
           <div style={{
-            background: "#fff", borderRadius: 14, maxWidth: 440, width: "100%",
+            background: "#fff", borderRadius: 14, maxWidth: 460, width: "100%",
             boxShadow: "0 20px 60px rgba(0,0,0,.3)", overflow: "hidden"
           }}>
             <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -450,40 +615,30 @@ function NewOrderForm() {
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 5 }}>
-                  Approved Basic Rate (₹ per Cylinder) *
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 5 }}>
+                  Approved Basic Rate (₹ per Cylinder / Unit) *
                 </label>
                 <input
                   type="number"
                   step="0.01"
                   required
                   autoFocus
-                  placeholder="e.g. 2680"
+                  placeholder="e.g. 3850"
                   value={modalAgreedRate}
                   onChange={e => setModalAgreedRate(e.target.value)}
-                  style={{
-                    width: "100%", border: "1.5px solid #cbd5e1", borderRadius: 8,
-                    padding: "9px 12px", fontSize: 14, outline: "none", boxSizing: "border-box"
-                  }}
+                  style={{ width: "100%", padding: "9px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 14, fontWeight: 700, outline: "none" }}
                 />
-                <span style={{ fontSize: 11, color: "#64748b", marginTop: 3, display: "block" }}>
-                  Basic GST-exclusive rate. Standard 18% GST will be added during invoicing.
+                <span style={{ fontSize: 11, color: "#64748b", marginTop: 4, display: "block" }}>
+                  Basic rate exclusive of 18% GST. GST will be added dynamically upon billing.
                 </span>
               </div>
 
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 8 }}>
-                <button
-                  type="button"
-                  onClick={() => setShowRateModal(false)}
-                  style={{ padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, background: "#f1f5f9", color: "#475569", border: "none", cursor: "pointer" }}
-                >
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+                <button type="button" onClick={() => setShowRateModal(false)} style={{ padding: "8px 14px", borderRadius: 8, background: "#f1f5f9", border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 600 }}>
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  style={{ padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700, background: "#16a34a", color: "#fff", border: "none", cursor: "pointer" }}
-                >
-                  Save & Lock Rate
+                <button type="submit" style={{ padding: "8px 18px", borderRadius: 8, background: "#16a34a", color: "#fff", border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 700 }}>
+                  Save & Apply Rate
                 </button>
               </div>
             </form>
@@ -494,29 +649,10 @@ function NewOrderForm() {
   );
 }
 
-export default function NewOrderPage() {
+export default function Page() {
   return (
-    <Suspense fallback={<div style={{ padding: 40, textAlign: "center" }}>Loading Order Form...</div>}>
+    <Suspense fallback={<div style={{ padding: 24, color: "#64748b" }}>Loading order booking...</div>}>
       <NewOrderForm />
     </Suspense>
   );
 }
-
-function Lbl({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ flex: 1, minWidth: 160 }}>
-      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--fg2)", marginBottom: 6 }}>{label}</label>
-      {children}
-    </div>
-  );
-}
-
-const inp: React.CSSProperties = {
-  width: "100%", border: "1.5px solid var(--border)", borderRadius: 8,
-  padding: "9px 13px", fontSize: 13, color: "var(--fg)", background: "var(--bg)",
-  outline: "none", boxSizing: "border-box", transition: "border-color .15s",
-};
-
-const sel: React.CSSProperties = {
-  ...inp, cursor: "pointer",
-};

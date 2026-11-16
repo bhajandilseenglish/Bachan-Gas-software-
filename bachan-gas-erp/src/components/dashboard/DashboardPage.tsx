@@ -109,10 +109,12 @@ export default function DashboardPage() {
     customers,
     orders,
     deliveries,
+    cylinderExchangeLedger,
     invoices,
     payments,
     settings,
     missedOrderAlerts,
+    followUpLogs,
     evaluateInactivityAlerts
   } = useERPStore();
 
@@ -169,6 +171,30 @@ export default function DashboardPage() {
   // Real Dynamic Chart Calculation
   const hasFinancialData = invoices.length > 0 || payments.length > 0;
   const hasOrderData = orders.length > 0;
+
+  // ── 4 Dedicated Operational Sections KPIs (Handwritten Requirements) ──
+  // Section 1: Orders
+  const todaysOrdersCount = orders.length;
+  const pendingOrdersCount = orders.filter(o => o.status !== "delivered" && o.status !== "cancelled").length;
+  const todaysIssuedCylinders = orders.filter(o => o.status !== "cancelled").reduce((s, o) => s + (o.qtyIssued || o.totalQty), 0);
+
+  // Section 2: Cylinder Exchange
+  const emptyReceivedToday = cylinderExchangeLedger.reduce((s, e) => s + e.emptyReceived, 0);
+  const emptyPendingTotal = customers.reduce((s, c) => s + (c.empty_cylinders_pending || 0), 0);
+
+  // Section 3: Finance
+  const paymentsToday = payments.reduce((s, p) => s + p.amount, 0);
+  const totalOutstanding = customers.reduce((s, c) => s + (c.outstanding || 0), 0);
+  const overduePaymentsTotal = customers.reduce((s, c) => s + (c.overdue || 0), 0);
+  const customersOverCreditCount = customers.filter(c => c.credit_limit !== null && c.credit_limit > 0 && (c.outstanding || 0) > c.credit_limit).length;
+
+  // Section 4: Customer Monitoring ("Commercial Customers — Order Alerts")
+  const todayKolkataDate = new Date().toISOString().split("T")[0];
+  const expectedOrdersToday = customers.filter(c => c.expected_next_order_date === todayKolkataDate).length;
+  const missedOrdersCount = missedOrderAlerts.filter(a => a.status === "active").length;
+  const followUpRequiredCount = missedOrderAlerts.filter(a => a.status === "active").length;
+  const contactedCount = missedOrderAlerts.filter(a => a.status === "contacted").length;
+  const resumedOrderingCount = missedOrderAlerts.filter(a => a.status === "resolved").length;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 1600 }}>
@@ -303,75 +329,128 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ── Financial KPIs ── */}
+      {/* ── 1. ORDERS SECTION ── */}
       <div>
-        <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", color: "#64748b", marginBottom: 12 }}>
-          Financial Position & Receivables
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".07em", color: "#1e3a8a", display: "flex", alignItems: "center", gap: 6 }}>
+            <ShoppingCart size={15} /> 1. Orders Operations
+          </div>
+          <Link href="/orders" style={{ fontSize: 11.5, color: "#1e3a8a", fontWeight: 700, textDecoration: "none" }}>View All Orders →</Link>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 14 }} className="metric-grid-6">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
           <MetCard
-            title="Total Receivables"
-            value={totalReceivables !== null ? LAKHS(totalReceivables) : "Not Configured"}
-            sub={hasConfiguredBalances ? `from ${configuredOutstandingCustomers.length} accounts` : "Opening balances not yet set"}
+            title="Today's Orders"
+            value={todaysOrdersCount.toString()}
+            sub="Active order bookings"
+            Icon={ShoppingCart}
+            color="#1e3a8a"
+            href="/orders"
+          />
+          <MetCard
+            title="Pending Orders"
+            value={pendingOrdersCount.toString()}
+            sub="Awaiting dispatch or delivery"
+            Icon={Clock}
+            color="#d97706"
+            href="/orders"
+          />
+          <MetCard
+            title="Today's Issued Cylinders"
+            value={`${todaysIssuedCylinders} units`}
+            sub="Cylinders committed to delivery"
+            Icon={Package}
+            color="#7c3aed"
+            href="/deliveries"
+          />
+        </div>
+      </div>
+
+      {/* ── 2. CYLINDER EXCHANGE SECTION ── */}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".07em", color: "#0891b2", display: "flex", alignItems: "center", gap: 6 }}>
+            <RefreshCw size={15} /> 2. Cylinder Return & Exchange
+          </div>
+          <Link href="/reports/cylinders" style={{ fontSize: 11.5, color: "#0891b2", fontWeight: 700, textDecoration: "none" }}>Cylinder Ledger →</Link>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
+          <MetCard
+            title="Empty Cylinders Received Today"
+            value={`${emptyReceivedToday} units`}
+            sub="Verified empty cylinder returns"
+            Icon={CheckCircle2}
+            color="#16a34a"
+            href="/reports/cylinders"
+          />
+          <MetCard
+            title="Empty Cylinders Pending Return"
+            value={`${emptyPendingTotal} units`}
+            sub="Customer liability pending collection"
+            Icon={AlertTriangle}
+            color={emptyPendingTotal > 0 ? "#dc2626" : "#16a34a"}
+            href="/reports/cylinders"
+          />
+        </div>
+      </div>
+
+      {/* ── 3. FINANCE SECTION ── */}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".07em", color: "#16a34a", display: "flex", alignItems: "center", gap: 6 }}>
+            <IndianRupee size={15} /> 3. Financial Status & Liquidity
+          </div>
+          <Link href="/finance/outstanding" style={{ fontSize: 11.5, color: "#16a34a", fontWeight: 700, textDecoration: "none" }}>Aging Register →</Link>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }} className="stat-grid-4">
+          <MetCard
+            title="Payments Received Today"
+            value={INR(paymentsToday)}
+            sub={`${payments.length} receipts booked`}
+            Icon={CreditCard}
+            color="#16a34a"
+            href="/finance/payments"
+          />
+          <MetCard
+            title="Total Outstanding"
+            value={totalReceivables !== null ? INR(totalReceivables) : "Not Configured"}
+            sub={hasConfiguredBalances ? `${configuredOutstandingCustomers.length} debtor accounts` : "Balances pending"}
             Icon={IndianRupee}
             color="#1e3a8a"
             href="/finance/outstanding"
           />
           <MetCard
-            title="Overdue Balance"
-            value={totalOverdue > 0 ? LAKHS(totalOverdue) : "₹0"}
+            title="Overdue Payments"
+            value={totalOverdue > 0 ? INR(totalOverdue) : "₹0"}
             sub={totalOverdue > 0 ? `${customers.filter(c => (c.overdue || 0) > 0).length} overdue accounts` : "Zero overdue accounts"}
             Icon={AlertCircle}
             color="#dc2626"
             href="/finance/outstanding"
           />
           <MetCard
-            title="Today's Collections"
-            value={LAKHS(payments.reduce((s, p) => s + p.amount, 0))}
-            sub={`${payments.length} receipts cleared`}
-            Icon={CreditCard}
-            color="#16a34a"
-            href="/finance/payments"
-          />
-          <MetCard
-            title="Billed Invoices"
-            value={LAKHS(invoices.reduce((s, i) => s + i.total, 0))}
-            sub={`${invoices.length} invoices generated`}
-            Icon={TrendingUp}
-            color="#7c3aed"
-            href="/finance/invoices"
-          />
-          <MetCard
-            title="Sanctioned Credit"
-            value={totalCreditLimits > 0 ? LAKHS(totalCreditLimits) : "Not Configured"}
-            sub={totalCreditLimits > 0 ? "Across active customers" : "Set in Customer Master"}
+            title="Customers Over Credit Limit"
+            value={customersOverCreditCount.toString()}
+            sub="Exceeded sanctioned credit"
             Icon={Lock}
-            color="#2563eb"
-            href="/finance/credit"
-          />
-          <MetCard
-            title="Available Credit"
-            value={availableCredit !== null ? LAKHS(availableCredit) : "Not Configured"}
-            sub={totalCreditLimits > 0 ? `${Math.round(((availableCredit || 0) / totalCreditLimits) * 100)}% available room` : "Credit terms unconfigured"}
-            Icon={CheckCircle2}
-            color="#0891b2"
+            color={customersOverCreditCount > 0 ? "#dc2626" : "#16a34a"}
             href="/finance/credit"
           />
         </div>
       </div>
 
-      {/* ── Operational Mini KPIs ── */}
+      {/* ── 4. CUSTOMER MONITORING SECTION ── */}
       <div>
-        <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", color: "#64748b", marginBottom: 12 }}>
-          LPG Logistics & Customer Register Status
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".07em", color: "#b91c1c", display: "flex", alignItems: "center", gap: 6 }}>
+            <AlertTriangle size={15} /> 4. Commercial Customers — Order Alerts
+          </div>
+          <Link href="/customers/alerts" style={{ fontSize: 11.5, color: "#b91c1c", fontWeight: 700, textDecoration: "none" }}>Open Alert Management Hub →</Link>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 14 }} className="metric-grid-6">
-          <MiniCard val={totalCustomers} label="Registered Customers" Icon={Users} color="#1e3a8a" href="/customers" />
-          <MiniCard val={activeCommercial} label="Active Commercial Accounts" Icon={Building2} color="#16a34a" href="/customers?category=commercial" />
-          <MiniCard val={pendingApproval} label="Orders Awaiting Dispatch" Icon={Clock} color="#d97706" href="/orders" />
-          <MiniCard val={pendingDispatch} label="Orders In Transit" Icon={Truck} color="#f97316" href="/deliveries?status=pending" />
-          <MiniCard val={cylindersOrdered} label="Total Cylinders Ordered" Icon={Package} color="#7c3aed" href="/orders" />
-          <MiniCard val={completedDeliveries} label="Deliveries Completed" Icon={CheckCircle2} color="#059669" href="/deliveries" />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
+          <MiniCard val={expectedOrdersToday} label="Expected Orders Today" Icon={Calendar} color="#1e3a8a" href="/customers/alerts" />
+          <MiniCard val={missedOrdersCount} label="Missed Orders" Icon={AlertTriangle} color="#dc2626" href="/customers/alerts" />
+          <MiniCard val={followUpRequiredCount} label="Requiring Follow-up" Icon={Clock} color="#d97706" href="/customers/alerts" />
+          <MiniCard val={contactedCount} label="Customers Contacted" Icon={CheckCircle2} color="#0891b2" href="/customers/alerts" />
+          <MiniCard val={resumedOrderingCount} label="Resumed Ordering" Icon={TrendingUp} color="#16a34a" href="/customers/alerts" />
         </div>
       </div>
 

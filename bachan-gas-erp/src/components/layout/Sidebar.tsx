@@ -30,6 +30,7 @@ export default function Sidebar({ collapsed, mobileOpen, onClose }: Props) {
       children: [
         { label: "All Customers", href: "/customers", Icon: Users },
         { label: "Commercial Consumers", href: "/customers?category=commercial", Icon: Building2 },
+        { label: "Domestic Consumers", href: "/customers?category=domestic", Icon: Users },
         { label: "Add Customer", href: "/customers/new", Icon: Plus },
         { label: "Excel Import", href: "/customers/import", Icon: Upload },
         {
@@ -62,6 +63,7 @@ export default function Sidebar({ collapsed, mobileOpen, onClose }: Props) {
       badge: pendingRateRequests > 0 ? pendingRateRequests : undefined,
       children: [
         { label: "LPG Products", href: "/products", Icon: Package },
+        { label: "Basic Rate Master", href: "/products/basic-rates", Icon: Shield },
         { label: "Customer Rates", href: "/products/rates", Icon: Tag },
         {
           label: "Rate Change Requests",

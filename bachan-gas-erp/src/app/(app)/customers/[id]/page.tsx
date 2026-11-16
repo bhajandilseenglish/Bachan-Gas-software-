@@ -7,7 +7,7 @@ import {
   CreditCard, Truck, History, BookOpen, AlertCircle, CheckCircle,
   Receipt, ArrowUpRight, ArrowDownLeft, Download, Eye, ChevronRight,
   Printer, X, Check, RotateCcw, AlertTriangle, ShieldCheck, ShieldAlert,
-  Clock, Calendar, UserCheck, MessageSquare, Shield, Tag
+  Clock, Calendar, UserCheck, MessageSquare, Shield, Tag, TrendingUp
 } from "lucide-react";
 import {
   useERPStore,
@@ -67,6 +67,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
     updateCustomerTenureAndCredit,
     recordFollowUp,
     pauseCustomerAlerts,
+    getCustomerConsumptionAnalytics,
   } = useERPStore();
 
   const [activeTab, setActiveTab] = useState("overview");
@@ -132,6 +133,9 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
   const custAlert = missedOrderAlerts.find(a => a.customerId === c.id && a.status !== "resolved");
   const custFollowUps = followUpLogs.filter(f => f.customerId === c.id);
 
+  // Consumption analytics
+  const consumption = getCustomerConsumptionAnalytics(c.id);
+
   // Credit & Exposure
   const creditLimit = c.credit_limit;
   const currentOutstanding = c.outstanding || 0;
@@ -141,18 +145,19 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
   // Inactivity status
   const isMissedOrder = c.missed_order_alert_active || !!custAlert;
 
-  // 10 Tabs specified by user
+  // 11 Tabs specified by user (Requirement #15)
   const TABS = [
     { id: "overview", label: "Overview", Icon: Building2 },
     { id: "orders", label: `Orders (${custOrders.length})`, Icon: FileText },
     { id: "deliveries", label: `Deliveries (${custDeliveries.length})`, Icon: Truck },
-    { id: "empty_cylinders", label: `Empty Cylinders (${c.empty_cylinders_pending || 0})`, Icon: RotateCcw, badge: (c.empty_cylinders_pending || 0) > 0 ? c.empty_cylinders_pending : undefined },
+    { id: "empty_cylinders", label: `Empty Returns (${c.empty_cylinders_pending || 0})`, Icon: RotateCcw, badge: (c.empty_cylinders_pending || 0) > 0 ? c.empty_cylinders_pending : undefined },
     { id: "rates", label: `Customer Rates (${custRates.length})`, Icon: Receipt },
     { id: "payments", label: `Payments (${custPayments.length})`, Icon: CreditCard },
-    { id: "ledger", label: `Ledger (${custLedger.length})`, Icon: BookOpen },
+    { id: "ledger", label: `Outstanding & Ledger (${custLedger.length})`, Icon: BookOpen },
     { id: "credit_tenure", label: "Credit & Tenure", Icon: Shield },
+    { id: "consumption", label: "Consumption", Icon: TrendingUp },
     { id: "alerts", label: "Order Alerts", Icon: AlertTriangle, badge: isMissedOrder ? "ALERT" : undefined, badgeColor: "#dc2626" },
-    { id: "followups", label: `Follow-up History (${custFollowUps.length})`, Icon: History },
+    { id: "followups", label: `Follow-ups (${custFollowUps.length})`, Icon: History },
   ];
 
   // Save Rate
@@ -328,11 +333,28 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
               <h1 style={{ fontSize: 22, fontWeight: 900, color: "#1e293b", margin: 0 }}>
                 {c.name}
               </h1>
+              {c.business && c.business !== c.name && (
+                <span style={{ fontSize: 14, fontWeight: 700, color: "#475569" }}>
+                  ({c.business})
+                </span>
+              )}
               <span style={{ fontFamily: "monospace", fontSize: 12.5, fontWeight: 800, background: "#dbeafe", color: "#1e3a8a", padding: "2px 8px", borderRadius: 6 }}>
                 {c.code}
               </span>
+              {c.sap_code ? (
+                <span style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, background: "#fef3c7", color: "#92400e", padding: "2px 8px", borderRadius: 6, border: "1px solid #fde68a" }}>
+                  SAP: {c.sap_code}
+                </span>
+              ) : (
+                <span style={{ fontSize: 11, fontWeight: 600, background: "#f1f5f9", color: "#94a3b8", padding: "2px 8px", borderRadius: 6 }}>
+                  SAP: Not Configured
+                </span>
+              )}
               <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", background: "#f1f5f9", color: "#475569", padding: "2px 8px", borderRadius: 100 }}>
                 {c.category} · {c.consumer_type}
+              </span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 100, background: c.status === "active" ? "#dcfce7" : "#fee2e2", color: c.status === "active" ? "#166534" : "#991b1b" }}>
+                {c.status === "active" ? "● Active" : "○ Inactive"}
               </span>
 
               {/* Order Alert Status: RED INDICATOR IF MISSED */}
@@ -369,47 +391,85 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
           </div>
         </div>
 
-        {/* Row 2: Comprehensive Business KPI Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, background: "#f8fafc", padding: 14, borderRadius: 10 }} className="metric-grid-6">
-          <div>
-            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Current Outstanding</div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: currentOutstanding > 0 ? "#dc2626" : "#16a34a", marginTop: 2 }}>
+        {/* Row 2: 10 Main Summary Cards as required by Commercial Master */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, background: "#f8fafc", padding: 14, borderRadius: 10 }}>
+          {/* Card 1: Customer Rate Status */}
+          <div style={{ background: "#fff", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Customer Rates</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: custRates.length > 0 ? "#1e3a8a" : "#d97706", marginTop: 3 }}>
+              {custRates.length > 0 ? `Configured (${custRates.length})` : "Standard Fallback"}
+            </div>
+          </div>
+
+          {/* Card 2: Total Outstanding */}
+          <div style={{ background: "#fff", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Total Outstanding</div>
+            <div style={{ fontSize: 17, fontWeight: 900, color: currentOutstanding > 0 ? "#dc2626" : "#16a34a", marginTop: 2 }}>
               {INR(c.outstanding)}
             </div>
           </div>
 
-          <div>
+          {/* Card 3: Advance Balance */}
+          <div style={{ background: "#fff", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Advance Balance</div>
+            <div style={{ fontSize: 17, fontWeight: 900, color: (c.advance_balance || 0) > 0 ? "#7c3aed" : "#64748b", marginTop: 2 }}>
+              {INR(c.advance_balance || 0)}
+            </div>
+          </div>
+
+          {/* Card 4: Credit Limit */}
+          <div style={{ background: "#fff", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
             <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Credit Limit</div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: "#1e293b", marginTop: 2 }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "#1e293b", marginTop: 2 }}>
               {c.credit_limit !== null ? INR(c.credit_limit) : "Not Configured"}
             </div>
           </div>
 
-          <div>
+          {/* Card 5: Available Credit */}
+          <div style={{ background: "#fff", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
             <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Available Credit</div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: availableCredit !== null && availableCredit < 0 ? "#dc2626" : "#16a34a", marginTop: 2 }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: availableCredit !== null && availableCredit < 0 ? "#dc2626" : "#16a34a", marginTop: 2 }}>
               {availableCredit !== null ? INR(availableCredit) : "Not Configured"}
             </div>
           </div>
 
-          <div>
+          {/* Card 6: Payment Tenure */}
+          <div style={{ background: "#fff", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
             <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Payment Tenure</div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: "#1e3a8a", marginTop: 2 }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "#1e3a8a", marginTop: 2 }}>
               {c.payment_tenure_days || 15} Days
             </div>
           </div>
 
-          <div>
-            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Empty Pending</div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: (c.empty_cylinders_pending || 0) > 0 ? "#dc2626" : "#16a34a", marginTop: 2 }}>
+          {/* Card 7: Empty Cylinders Pending */}
+          <div style={{ background: "#fff", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Empties Pending</div>
+            <div style={{ fontSize: 16, fontWeight: 900, color: (c.empty_cylinders_pending || 0) > 0 ? "#dc2626" : "#16a34a", marginTop: 2 }}>
               {c.empty_cylinders_pending || 0} units
             </div>
           </div>
 
-          <div>
-            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Expected Next Order</div>
-            <div style={{ fontSize: 17, fontWeight: 900, color: isMissedOrder ? "#dc2626" : "#1e3a8a", marginTop: 2 }}>
-              {c.expected_next_order_date || "Not Set"}
+          {/* Card 8: Last Order Date */}
+          <div style={{ background: "#fff", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Last Order Date</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#1e293b", marginTop: 2 }}>
+              {c.last_order_date || c.last_supply || "None Recorded"}
+            </div>
+          </div>
+
+          {/* Card 9: Average Consumption */}
+          <div style={{ background: "#fff", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Avg Consumption</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#0284c7", marginTop: 2 }}>
+              {consumption.averageMonthlyConsumption > 0 ? `${consumption.averageMonthlyConsumption} cyl/mo` : (consumption.averageDailyConsumption > 0 ? `${consumption.averageDailyConsumption} cyl/day` : "Calculated on Refills")}
+            </div>
+          </div>
+
+          {/* Card 10: Expected Next Order / Missed Status */}
+          <div style={{ background: isMissedOrder ? "#fee2e2" : "#fff", padding: "10px 14px", borderRadius: 8, border: `1px solid ${isMissedOrder ? "#fca5a5" : "#e2e8f0"}` }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: isMissedOrder ? "#991b1b" : "#64748b" }}>Order Alert Status</div>
+            <div style={{ fontSize: 14, fontWeight: 900, color: isMissedOrder ? "#dc2626" : "#16a34a", marginTop: 2 }}>
+              {isMissedOrder ? "MISSED ORDER" : (c.expected_next_order_date ? c.expected_next_order_date : "Cadence Normal")}
             </div>
           </div>
         </div>
@@ -763,10 +823,12 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
       {/* ── TAB 6: PAYMENTS ── */}
       {activeTab === "payments" && (
         <div style={{ ...card(), overflow: "hidden" }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
             <div>
               <span style={{ fontWeight: 800, fontSize: 14, color: "#1e293b" }}>Payment Collections ({custPayments.length})</span>
-              <p style={{ fontSize: 12, color: "#64748b", margin: "2px 0 0" }}>Total Collected: ₹{custPayments.reduce((s, p) => s + p.amount, 0).toLocaleString("en-IN")}</p>
+              <p style={{ fontSize: 12, color: "#64748b", margin: "2px 0 0" }}>
+                Total Collected: ₹{custPayments.reduce((s, p) => s + p.amount, 0).toLocaleString("en-IN")} · Outstanding: <strong>{INR(c.outstanding)}</strong> · Advance Balance: <strong style={{ color: "#7c3aed" }}>{INR(c.advance_balance || 0)}</strong>
+              </p>
             </div>
             <button
               onClick={() => setShowPaymentModal(true)}
@@ -951,6 +1013,141 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
                 <strong>Net {c.payment_tenure_days || 15} Days</strong>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB 9: CONSUMPTION ANALYTICS ── */}
+      {activeTab === "consumption" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Header Banner */}
+          <div style={{ ...card(), padding: 20, background: "linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%)", border: "1px solid #bae6fd" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 900, color: "#0f172a", margin: 0 }}>
+                  Customer Refill & Consumption Analytics
+                </h3>
+                <p style={{ fontSize: 13, color: "#475569", margin: "4px 0 0" }}>
+                  Derived from verified physical deliveries. All rates and billings remain strictly per cylinder/unit.
+                </p>
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 700, background: "#fff", color: "#0369a1", padding: "6px 12px", borderRadius: 8, border: "1px solid #7dd3fc" }}>
+                Total Delivered: <strong>{consumption.totalDeliveredCylinders} Cylinders</strong>
+              </span>
+            </div>
+          </div>
+
+          {/* 6 Metric KPI Grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
+            <div style={{ ...card(), padding: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Average Daily Consumption</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: "#0369a1", marginTop: 4 }}>
+                {consumption.averageDailyConsumption > 0 ? `${consumption.averageDailyConsumption} cyl / day` : "—"}
+              </div>
+              <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 2 }}>
+                Equivalent: ~{Math.round(consumption.averageDailyConsumption * 47.5)} kg/day (LOT basis)
+              </div>
+            </div>
+
+            <div style={{ ...card(), padding: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Average Weekly Consumption</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: "#1e3a8a", marginTop: 4 }}>
+                {consumption.averageWeeklyConsumption > 0 ? `${consumption.averageWeeklyConsumption} cyl / week` : "—"}
+              </div>
+              <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 2 }}>
+                Rolling 7-day expected demand
+              </div>
+            </div>
+
+            <div style={{ ...card(), padding: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Average Monthly Consumption</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: "#16a34a", marginTop: 4 }}>
+                {consumption.averageMonthlyConsumption > 0 ? `${consumption.averageMonthlyConsumption} cyl / month` : "—"}
+              </div>
+              <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 2 }}>
+                Basis for credit & supply quota
+              </div>
+            </div>
+
+            <div style={{ ...card(), padding: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Average Order Quantity</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: "#d97706", marginTop: 4 }}>
+                {consumption.averageOrderQty > 0 ? `${consumption.averageOrderQty} cyl / order` : "—"}
+              </div>
+              <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 2 }}>
+                Typical delivery lot size
+              </div>
+            </div>
+
+            <div style={{ ...card(), padding: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Days Between Orders</div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: "#7c3aed", marginTop: 4 }}>
+                {consumption.averageDaysBetweenOrders > 0 ? `Every ${consumption.averageDaysBetweenOrders} days` : "—"}
+              </div>
+              <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 2 }}>
+                Refill interval frequency
+              </div>
+            </div>
+
+            <div style={{ ...card(), padding: 18, borderLeft: isMissedOrder ? "4px solid #dc2626" : "4px solid #16a34a" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Expected Next Order</div>
+              <div style={{ fontSize: 20, fontWeight: 900, color: isMissedOrder ? "#dc2626" : "#16a34a", marginTop: 4 }}>
+                {c.expected_next_order_date || "Not Set"}
+              </div>
+              <div style={{ fontSize: 11.5, color: isMissedOrder ? "#b91c1c" : "#64748b", marginTop: 2, fontWeight: isMissedOrder ? 700 : 500 }}>
+                {isMissedOrder ? "Cutoff Passed (Alert Active)" : `Last: ${c.last_order_date || c.last_supply || "None"}`}
+              </div>
+            </div>
+          </div>
+
+          {/* Product-Specific Delivered Breakdown */}
+          <div style={{ ...card(), overflow: "hidden" }}>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
+              <h4 style={{ fontSize: 14, fontWeight: 800, color: "#1e293b", margin: 0 }}>
+                Delivered Volume by Active LPG Product
+              </h4>
+              <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0" }}>
+                Commercial LPG products are invoiced and supplied strictly per cylinder/unit. Equivalent net kg is provided for inventory reference only.
+              </p>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "#f1f5f9", borderBottom: "1.5px solid #e2e8f0" }}>
+                  {["Product Name", "Package Type", "Total Cylinders Delivered", "Equivalent Net Weight (kg)", "Customer Agreed Rate", "Billing Unit"].map(h => (
+                    <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#475569" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {activeProducts.map(prod => {
+                  const item = consumption.deliveredByProduct.find(p => p.productName === prod.name);
+                  const qty = item ? item.qty : 0;
+                  const totalKg = item ? item.equivalentKg : 0;
+                  const rateItem = custRates.find(r => r.productId === prod.id);
+
+                  return (
+                    <tr key={prod.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={{ padding: "12px 16px", fontWeight: 800, color: "#1e293b" }}>{prod.name}</td>
+                      <td style={{ padding: "12px 16px", fontSize: 12.5, color: "#64748b" }}>{prod.type}</td>
+                      <td style={{ padding: "12px 16px", fontSize: 14, fontWeight: 900, color: qty > 0 ? "#1e3a8a" : "#94a3b8" }}>
+                        {qty} units
+                      </td>
+                      <td style={{ padding: "12px 16px", fontSize: 13, color: "#64748b" }}>
+                        {qty > 0 ? `${totalKg.toLocaleString("en-IN")} kg` : "—"}
+                      </td>
+                      <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 800, color: rateItem ? "#16a34a" : "#d97706" }}>
+                        {rateItem ? `₹${rateItem.agreedRate.toLocaleString("en-IN")} / cyl` : `Standard: ₹${prod.rate.toLocaleString("en-IN")} / cyl`}
+                      </td>
+                      <td style={{ padding: "12px 16px" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "#e0f2fe", color: "#0369a1" }}>
+                          Per Cylinder / Unit
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
