@@ -244,6 +244,99 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ── QUICK DAILY TASKS (SUPER EASY FOR ALL STAFF) ── */}
+      <div style={{
+        background: "linear-gradient(135deg, #1e3a8a 0%, #1e293b 100%)",
+        borderRadius: 14, padding: "18px 22px", color: "#fff",
+        boxShadow: "0 4px 15px rgba(30, 58, 138, 0.15)"
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+          <div>
+            <h2 style={{ fontSize: 16, fontWeight: 900, margin: 0, color: "#fff", letterSpacing: "-.2px" }}>
+              ⚡ Quick Daily Tasks (Daily Gas Agency Work)
+            </h2>
+            <p style={{ fontSize: 12.5, color: "#cbd5e1", margin: "3px 0 0" }}>
+              Click any button below to perform your daily work in 1 click:
+            </p>
+          </div>
+          <span style={{ fontSize: 11.5, background: "rgba(255,255,255,0.15)", padding: "4px 10px", borderRadius: 100, color: "#f8fafc", fontWeight: 700 }}>
+            Distributor: {settings.distributorshipCode} · Ludhiana
+          </span>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 12 }}>
+          <Link href="/orders/new" style={{
+            background: "#f97316", color: "#fff", padding: "13px 16px", borderRadius: 10,
+            textDecoration: "none", display: "flex", alignItems: "center", gap: 12,
+            boxShadow: "0 2px 8px rgba(249,115,22,0.35)", transition: "transform .15s"
+          }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <ShoppingCart size={19} color="#fff" />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 900 }}>1. Book New Order</div>
+              <div style={{ fontSize: 11, color: "#ffedd5" }}>Customer refill booking</div>
+            </div>
+          </Link>
+
+          <Link href="/deliveries" style={{
+            background: "#0284c7", color: "#fff", padding: "13px 16px", borderRadius: 10,
+            textDecoration: "none", display: "flex", alignItems: "center", gap: 12,
+            boxShadow: "0 2px 8px rgba(2,132,199,0.35)", transition: "transform .15s"
+          }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Truck size={19} color="#fff" />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 900 }}>2. Deliver Cylinders</div>
+              <div style={{ fontSize: 11, color: "#e0f2fe" }}>Filled cylinders dispatched</div>
+            </div>
+          </Link>
+
+          <Link href="/deliveries?tab=received" style={{
+            background: "#7c3aed", color: "#fff", padding: "13px 16px", borderRadius: 10,
+            textDecoration: "none", display: "flex", alignItems: "center", gap: 12,
+            boxShadow: "0 2px 8px rgba(124,58,237,0.35)", transition: "transform .15s"
+          }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <RefreshCw size={19} color="#fff" />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 900 }}>3. Collect Empties</div>
+              <div style={{ fontSize: 11, color: "#ede9fe" }}>Khali cylinder wapsi</div>
+            </div>
+          </Link>
+
+          <Link href="/finance/payments" style={{
+            background: "#16a34a", color: "#fff", padding: "13px 16px", borderRadius: 10,
+            textDecoration: "none", display: "flex", alignItems: "center", gap: 12,
+            boxShadow: "0 2px 8px rgba(22,163,74,0.35)", transition: "transform .15s"
+          }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <CreditCard size={19} color="#fff" />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 900 }}>4. Take Payment</div>
+              <div style={{ fontSize: 11, color: "#dcfce7" }}>Cash, UPI or Cheque</div>
+            </div>
+          </Link>
+
+          <Link href="/customers" style={{
+            background: "#334155", color: "#fff", padding: "13px 16px", borderRadius: 10,
+            textDecoration: "none", display: "flex", alignItems: "center", gap: 12,
+            boxShadow: "0 2px 8px rgba(51,65,85,0.35)", transition: "transform .15s"
+          }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Users size={19} color="#fff" />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 900 }}>5. Customer Khata</div>
+              <div style={{ fontSize: 11, color: "#cbd5e1" }}>Check balance & rates</div>
+            </div>
+          </Link>
+        </div>
+      </div>
+
       {/* ── Customers Missing Expected Orders Alert Section ── */}
       <div style={{
         background: "#fff", border: "1.5px solid #fecaca", borderRadius: 12,
@@ -332,8 +425,11 @@ export default function DashboardPage() {
       {/* ── 1. ORDERS SECTION ── */}
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".07em", color: "#1e3a8a", display: "flex", alignItems: "center", gap: 6 }}>
-            <ShoppingCart size={15} /> 1. Orders Operations
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 900, color: "#1e3a8a", display: "flex", alignItems: "center", gap: 6 }}>
+              <ShoppingCart size={16} /> 1. Orders & Refills
+            </div>
+            <div style={{ fontSize: 11.5, color: "#64748b" }}>Gas bookings, cylinders dispatched & orders pending delivery</div>
           </div>
           <Link href="/orders" style={{ fontSize: 11.5, color: "#1e3a8a", fontWeight: 700, textDecoration: "none" }}>View All Orders →</Link>
         </div>
@@ -341,23 +437,23 @@ export default function DashboardPage() {
           <MetCard
             title="Today's Orders"
             value={todaysOrdersCount.toString()}
-            sub="Active order bookings"
+            sub="Active refill bookings"
             Icon={ShoppingCart}
             color="#1e3a8a"
             href="/orders"
           />
           <MetCard
-            title="Pending Orders"
+            title="Pending Delivery"
             value={pendingOrdersCount.toString()}
-            sub="Awaiting dispatch or delivery"
+            sub="Awaiting dispatch / in transit"
             Icon={Clock}
             color="#d97706"
             href="/orders"
           />
           <MetCard
-            title="Today's Issued Cylinders"
+            title="Cylinders Issued"
             value={`${todaysIssuedCylinders} units`}
-            sub="Cylinders committed to delivery"
+            sub="Filled cylinders sent out"
             Icon={Package}
             color="#7c3aed"
             href="/deliveries"
@@ -368,24 +464,27 @@ export default function DashboardPage() {
       {/* ── 2. CYLINDER EXCHANGE SECTION ── */}
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".07em", color: "#0891b2", display: "flex", alignItems: "center", gap: 6 }}>
-            <RefreshCw size={15} /> 2. Cylinder Return & Exchange
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 900, color: "#0891b2", display: "flex", alignItems: "center", gap: 6 }}>
+              <RefreshCw size={16} /> 2. Cylinders & Empties (Khali Cylinder Record)
+            </div>
+            <div style={{ fontSize: 11.5, color: "#64748b" }}>Empty cylinders collected back vs cylinders still with customers</div>
           </div>
           <Link href="/reports/cylinders" style={{ fontSize: 11.5, color: "#0891b2", fontWeight: 700, textDecoration: "none" }}>Cylinder Ledger →</Link>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
           <MetCard
-            title="Empty Cylinders Received Today"
+            title="Empties Received Back"
             value={`${emptyReceivedToday} units`}
-            sub="Verified empty cylinder returns"
+            sub="Collected back in godown"
             Icon={CheckCircle2}
             color="#16a34a"
             href="/reports/cylinders"
           />
           <MetCard
-            title="Empty Cylinders Pending Return"
+            title="Pending With Customers"
             value={`${emptyPendingTotal} units`}
-            sub="Customer liability pending collection"
+            sub="Khali cylinder baaki with clients"
             Icon={AlertTriangle}
             color={emptyPendingTotal > 0 ? "#dc2626" : "#16a34a"}
             href="/reports/cylinders"
@@ -396,22 +495,25 @@ export default function DashboardPage() {
       {/* ── 3. FINANCE SECTION ── */}
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".07em", color: "#16a34a", display: "flex", alignItems: "center", gap: 6 }}>
-            <IndianRupee size={15} /> 3. Financial Status & Liquidity
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 900, color: "#16a34a", display: "flex", alignItems: "center", gap: 6 }}>
+              <IndianRupee size={16} /> 3. Payments & Market Udhaar (Khata Balance)
+            </div>
+            <div style={{ fontSize: 11.5, color: "#64748b" }}>Collections received today, total customer balance & overdue payments</div>
           </div>
           <Link href="/finance/outstanding" style={{ fontSize: 11.5, color: "#16a34a", fontWeight: 700, textDecoration: "none" }}>Aging Register →</Link>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }} className="stat-grid-4">
           <MetCard
-            title="Payments Received Today"
+            title="Collections Today"
             value={INR(paymentsToday)}
-            sub={`${payments.length} receipts booked`}
+            sub={`${payments.length} receipts entered`}
             Icon={CreditCard}
             color="#16a34a"
             href="/finance/payments"
           />
           <MetCard
-            title="Total Outstanding"
+            title="Total Market Outstanding"
             value={totalReceivables !== null ? INR(totalReceivables) : "Not Configured"}
             sub={hasConfiguredBalances ? `${configuredOutstandingCustomers.length} debtor accounts` : "Balances pending"}
             Icon={IndianRupee}
@@ -419,7 +521,7 @@ export default function DashboardPage() {
             href="/finance/outstanding"
           />
           <MetCard
-            title="Overdue Payments"
+            title="Overdue Udhaar"
             value={totalOverdue > 0 ? INR(totalOverdue) : "₹0"}
             sub={totalOverdue > 0 ? `${customers.filter(c => (c.overdue || 0) > 0).length} overdue accounts` : "Zero overdue accounts"}
             Icon={AlertCircle}
@@ -427,9 +529,9 @@ export default function DashboardPage() {
             href="/finance/outstanding"
           />
           <MetCard
-            title="Customers Over Credit Limit"
+            title="Over Credit Limit"
             value={customersOverCreditCount.toString()}
-            sub="Exceeded sanctioned credit"
+            sub="Crossed sanctioned credit"
             Icon={Lock}
             color={customersOverCreditCount > 0 ? "#dc2626" : "#16a34a"}
             href="/finance/credit"
@@ -440,17 +542,20 @@ export default function DashboardPage() {
       {/* ── 4. CUSTOMER MONITORING SECTION ── */}
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".07em", color: "#b91c1c", display: "flex", alignItems: "center", gap: 6 }}>
-            <AlertTriangle size={15} /> 4. Commercial Customers — Order Alerts
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 900, color: "#b91c1c", display: "flex", alignItems: "center", gap: 6 }}>
+              <AlertTriangle size={16} /> 4. Customer Refill Reminders (Missed Orders)
+            </div>
+            <div style={{ fontSize: 11.5, color: "#64748b" }}>Customers due for refill today or who haven't ordered on time</div>
           </div>
-          <Link href="/customers/alerts" style={{ fontSize: 11.5, color: "#b91c1c", fontWeight: 700, textDecoration: "none" }}>Open Alert Management Hub →</Link>
+          <Link href="/customers/alerts" style={{ fontSize: 11.5, color: "#b91c1c", fontWeight: 700, textDecoration: "none" }}>Open Reminders Hub →</Link>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
-          <MiniCard val={expectedOrdersToday} label="Expected Orders Today" Icon={Calendar} color="#1e3a8a" href="/customers/alerts" />
+          <MiniCard val={expectedOrdersToday} label="Expected Today" Icon={Calendar} color="#1e3a8a" href="/customers/alerts" />
           <MiniCard val={missedOrdersCount} label="Missed Orders" Icon={AlertTriangle} color="#dc2626" href="/customers/alerts" />
-          <MiniCard val={followUpRequiredCount} label="Requiring Follow-up" Icon={Clock} color="#d97706" href="/customers/alerts" />
-          <MiniCard val={contactedCount} label="Customers Contacted" Icon={CheckCircle2} color="#0891b2" href="/customers/alerts" />
-          <MiniCard val={resumedOrderingCount} label="Resumed Ordering" Icon={TrendingUp} color="#16a34a" href="/customers/alerts" />
+          <MiniCard val={followUpRequiredCount} label="Need Call" Icon={Clock} color="#d97706" href="/customers/alerts" />
+          <MiniCard val={contactedCount} label="Called Staff" Icon={CheckCircle2} color="#0891b2" href="/customers/alerts" />
+          <MiniCard val={resumedOrderingCount} label="Order Placed" Icon={TrendingUp} color="#16a34a" href="/customers/alerts" />
         </div>
       </div>
 

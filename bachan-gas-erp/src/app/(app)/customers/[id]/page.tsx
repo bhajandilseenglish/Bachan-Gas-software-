@@ -391,85 +391,97 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
           </div>
         </div>
 
-        {/* Row 2: 10 Main Summary Cards as required by Commercial Master */}
+        {/* Row 2: 10 Main Summary Cards - Clear, Human-Friendly View */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, background: "#f8fafc", padding: 14, borderRadius: 10 }}>
           {/* Card 1: Customer Rate Status */}
-          <div style={{ background: "#fff", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+          <div style={{ background: "#fff", padding: "11px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
             <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Customer Rates</div>
             <div style={{ fontSize: 15, fontWeight: 800, color: custRates.length > 0 ? "#1e3a8a" : "#d97706", marginTop: 3 }}>
               {custRates.length > 0 ? `Configured (${custRates.length})` : "Standard Fallback"}
             </div>
+            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Approved basic rate</div>
           </div>
 
           {/* Card 2: Total Outstanding */}
-          <div style={{ background: "#fff", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Total Outstanding</div>
+          <div style={{ background: "#fff", padding: "11px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Total Udhaar (Due)</div>
             <div style={{ fontSize: 17, fontWeight: 900, color: currentOutstanding > 0 ? "#dc2626" : "#16a34a", marginTop: 2 }}>
               {INR(c.outstanding)}
             </div>
+            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Pending bill balance</div>
           </div>
 
           {/* Card 3: Advance Balance */}
-          <div style={{ background: "#fff", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Advance Balance</div>
+          <div style={{ background: "#fff", padding: "11px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Advance (Jama)</div>
             <div style={{ fontSize: 17, fontWeight: 900, color: (c.advance_balance || 0) > 0 ? "#7c3aed" : "#64748b", marginTop: 2 }}>
               {INR(c.advance_balance || 0)}
             </div>
+            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Prepaid unallocated</div>
           </div>
 
           {/* Card 4: Credit Limit */}
-          <div style={{ background: "#fff", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+          <div style={{ background: "#fff", padding: "11px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
             <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Credit Limit</div>
             <div style={{ fontSize: 16, fontWeight: 800, color: "#1e293b", marginTop: 2 }}>
               {c.credit_limit !== null ? INR(c.credit_limit) : "Not Configured"}
             </div>
+            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Max allowed credit</div>
           </div>
 
           {/* Card 5: Available Credit */}
-          <div style={{ background: "#fff", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Available Credit</div>
+          <div style={{ background: "#fff", padding: "11px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Available Room</div>
             <div style={{ fontSize: 16, fontWeight: 800, color: availableCredit !== null && availableCredit < 0 ? "#dc2626" : "#16a34a", marginTop: 2 }}>
               {availableCredit !== null ? INR(availableCredit) : "Not Configured"}
             </div>
+            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Remaining credit</div>
           </div>
 
           {/* Card 6: Payment Tenure */}
-          <div style={{ background: "#fff", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Payment Tenure</div>
+          <div style={{ background: "#fff", padding: "11px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Credit Days</div>
             <div style={{ fontSize: 16, fontWeight: 800, color: "#1e3a8a", marginTop: 2 }}>
               {c.payment_tenure_days || 15} Days
             </div>
+            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Allowed payment tenure</div>
           </div>
 
           {/* Card 7: Empty Cylinders Pending */}
-          <div style={{ background: "#fff", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Empties Pending</div>
+          <div style={{ background: "#fff", padding: "11px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Khali Cylinders Baaki</div>
             <div style={{ fontSize: 16, fontWeight: 900, color: (c.empty_cylinders_pending || 0) > 0 ? "#dc2626" : "#16a34a", marginTop: 2 }}>
               {c.empty_cylinders_pending || 0} units
             </div>
+            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Pending return with customer</div>
           </div>
 
           {/* Card 8: Last Order Date */}
-          <div style={{ background: "#fff", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+          <div style={{ background: "#fff", padding: "11px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
             <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Last Order Date</div>
             <div style={{ fontSize: 15, fontWeight: 800, color: "#1e293b", marginTop: 2 }}>
-              {c.last_order_date || c.last_supply || "None Recorded"}
+              {c.last_order_date || c.last_supply || "None"}
             </div>
+            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Previous delivery refill</div>
           </div>
 
           {/* Card 9: Average Consumption */}
-          <div style={{ background: "#fff", padding: "10px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Avg Consumption</div>
+          <div style={{ background: "#fff", padding: "11px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Monthly Usage</div>
             <div style={{ fontSize: 15, fontWeight: 800, color: "#0284c7", marginTop: 2 }}>
               {consumption.averageMonthlyConsumption > 0 ? `${consumption.averageMonthlyConsumption} cyl/mo` : (consumption.averageDailyConsumption > 0 ? `${consumption.averageDailyConsumption} cyl/day` : "Calculated on Refills")}
             </div>
+            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Avg refill demand</div>
           </div>
 
           {/* Card 10: Expected Next Order / Missed Status */}
-          <div style={{ background: isMissedOrder ? "#fee2e2" : "#fff", padding: "10px 14px", borderRadius: 8, border: `1px solid ${isMissedOrder ? "#fca5a5" : "#e2e8f0"}` }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: isMissedOrder ? "#991b1b" : "#64748b" }}>Order Alert Status</div>
+          <div style={{ background: isMissedOrder ? "#fee2e2" : "#fff", padding: "11px 14px", borderRadius: 8, border: `1px solid ${isMissedOrder ? "#fca5a5" : "#e2e8f0"}` }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: isMissedOrder ? "#991b1b" : "#64748b" }}>Refill Status</div>
             <div style={{ fontSize: 14, fontWeight: 900, color: isMissedOrder ? "#dc2626" : "#16a34a", marginTop: 2 }}>
-              {isMissedOrder ? "MISSED ORDER" : (c.expected_next_order_date ? c.expected_next_order_date : "Cadence Normal")}
+              {isMissedOrder ? "MISSED ORDER" : (c.expected_next_order_date ? c.expected_next_order_date : "Refill Normal")}
+            </div>
+            <div style={{ fontSize: 10.5, color: isMissedOrder ? "#b91c1c" : "#94a3b8", marginTop: 2 }}>
+              {isMissedOrder ? "Cutoff passed (Call)" : "Refill cadence ok"}
             </div>
           </div>
         </div>

@@ -279,42 +279,49 @@ function NewOrderForm() {
               <div style={{ background: "#fff", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
                 <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Credit Limit</div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: "#1e293b", marginTop: 2 }}>{INR(selectedCustomer.credit_limit)}</div>
+                <div style={{ fontSize: 9.5, color: "#94a3b8" }}>Max allowed credit</div>
               </div>
               <div style={{ background: "#fff", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Available Credit</div>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Available Room</div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: availableCredit !== null && availableCredit > 0 ? "#16a34a" : "#dc2626", marginTop: 2 }}>
                   {INR(availableCredit)}
                 </div>
+                <div style={{ fontSize: 9.5, color: "#94a3b8" }}>Remaining credit</div>
               </div>
               <div style={{ background: "#fff", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Current Outstanding</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: (selectedCustomer.outstanding || 0) > 0 ? "#dc2626" : "#64748b", marginTop: 2 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Pending Udhaar</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: (selectedCustomer.outstanding || 0) > 0 ? "#dc2626" : "#16a34a", marginTop: 2 }}>
                   {INR(selectedCustomer.outstanding)}
                 </div>
+                <div style={{ fontSize: 9.5, color: "#94a3b8" }}>Current due balance</div>
               </div>
               <div style={{ background: "#fff", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Advance Balance</div>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Advance (Jama)</div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: (selectedCustomer.advance_balance || 0) > 0 ? "#16a34a" : "#64748b", marginTop: 2 }}>
                   {INR(selectedCustomer.advance_balance || 0)}
                 </div>
+                <div style={{ fontSize: 9.5, color: "#94a3b8" }}>Prepaid balance</div>
               </div>
               <div style={{ background: "#fff", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Payment Tenure</div>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Credit Days</div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: "#2563eb", marginTop: 2 }}>
                   {selectedCustomer.payment_tenure_days ?? 15} Days
                 </div>
+                <div style={{ fontSize: 9.5, color: "#94a3b8" }}>Payment tenure</div>
               </div>
               <div style={{ background: "#fff", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Empties Pending</div>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Khali Cylinders</div>
                 <div style={{ fontSize: 14, fontWeight: 900, color: (selectedCustomer.empty_cylinders_pending || 0) > 0 ? "#ea580c" : "#16a34a", marginTop: 2 }}>
                   {selectedCustomer.empty_cylinders_pending || 0} cyl
                 </div>
+                <div style={{ fontSize: 9.5, color: "#94a3b8" }}>Pending return</div>
               </div>
               <div style={{ background: "#fff", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Last Order Date</div>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Last Order</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "#475569", marginTop: 2 }}>
                   {selectedCustomer.last_order_date || selectedCustomer.last_supply || "None"}
                 </div>
+                <div style={{ fontSize: 9.5, color: "#94a3b8" }}>Previous refill</div>
               </div>
             </div>
           </div>
