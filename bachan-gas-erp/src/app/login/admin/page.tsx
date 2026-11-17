@@ -34,59 +34,181 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Back link */}
-        <div className="mb-4">
+    <div
+      style={{
+        height: "100vh",
+        minHeight: "100vh",
+        width: "100%",
+        overflowY: "auto",
+        background: "radial-gradient(ellipse at 50% 0%, #1e293b 0%, #0f172a 45%, #020617 100%)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "32px 16px",
+        boxSizing: "border-box",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif",
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: 440, margin: "auto" }}>
+        {/* Back Link */}
+        <div style={{ marginBottom: 16 }}>
           <Link
             href="/login"
-            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12,
+              fontWeight: 600,
+              color: "#94a3b8",
+              textDecoration: "none",
+              transition: "color .15s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#ffffff")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "#94a3b8")}
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Back to Portal Selection
+            <ArrowLeft size={14} /> Back to Portal Selection
           </Link>
         </div>
 
         {/* Branding */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-600 to-orange-500 text-white shadow-lg shadow-orange-500/20 mb-3">
-            <ShieldCheck className="w-7 h-7" />
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 14,
+              background: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 8px 20px rgba(234, 88, 12, 0.35)",
+              marginBottom: 12,
+            }}
+          >
+            <ShieldCheck size={28} color="#ffffff" />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Bachan Gas Service</h1>
-          <p className="text-xs text-orange-400 font-semibold tracking-wider uppercase mt-1">
+
+          <h1
+            style={{
+              fontSize: 22,
+              fontWeight: 900,
+              color: "#ffffff",
+              letterSpacing: "-0.4px",
+              margin: "0 0 4px 0",
+            }}
+          >
+            Bachan Gas Service
+          </h1>
+
+          <p
+            style={{
+              fontSize: 11.5,
+              fontWeight: 700,
+              color: "#f97316",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              margin: "0 0 4px 0",
+            }}
+          >
             Administrator Secure Portal
           </p>
-          <p className="text-xs text-slate-400 mt-1">
-            Distributor Code: 0000110351 · Ludhiana, Punjab
+
+          <p style={{ fontSize: 11.5, color: "#64748b", margin: 0 }}>
+            IOCL Code: 0000110351 · Ludhiana, Punjab
           </p>
         </div>
 
         {/* Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl shadow-black/60">
-          <div className="mb-5 pb-4 border-b border-slate-800 flex items-center justify-between">
+        <div
+          style={{
+            background: "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)",
+            border: "1px solid rgba(255, 255, 255, 0.12)",
+            borderRadius: 18,
+            padding: 26,
+            boxShadow: "0 16px 40px rgba(0, 0, 0, 0.6)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 20,
+              paddingBottom: 14,
+              borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+            }}
+          >
             <div>
-              <h2 className="text-sm font-semibold text-white">Administrator Login</h2>
-              <p className="text-xs text-slate-400">Full administrative authorization required</p>
+              <h2 style={{ fontSize: 14, fontWeight: 700, color: "#ffffff", margin: 0 }}>
+                Sign In to Admin
+              </h2>
+              <p style={{ fontSize: 11.5, color: "#94a3b8", margin: "2px 0 0 0" }}>
+                Full administrative privileges
+              </p>
             </div>
-            <span className="px-2.5 py-1 text-[11px] font-bold uppercase rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                textTransform: "uppercase",
+                padding: "3px 8px",
+                borderRadius: 6,
+                background: "rgba(249, 115, 22, 0.15)",
+                color: "#f97316",
+                border: "1px solid rgba(249, 115, 22, 0.3)",
+              }}
+            >
               Admin Role
             </span>
           </div>
 
           {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-xs text-red-400 font-medium leading-relaxed">
+            <div
+              style={{
+                marginBottom: 16,
+                padding: "10px 14px",
+                borderRadius: 8,
+                background: "rgba(220, 38, 38, 0.15)",
+                border: "1px solid rgba(220, 38, 38, 0.3)",
+                color: "#fca5a5",
+                fontSize: 12,
+                fontWeight: 600,
+                lineHeight: 1.4,
+              }}
+            >
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  color: "#cbd5e1",
+                  marginBottom: 6,
+                }}
+              >
                 Admin Username
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                  <User className="w-4 h-4" />
+              <div style={{ position: "relative" }}>
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 12,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    pointerEvents: "none",
+                    color: "#64748b",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <User size={16} />
                 </div>
                 <input
                   type="text"
@@ -94,18 +216,50 @@ export default function AdminLoginPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="admin"
-                  className="w-full pl-9 pr-3 py-2 text-sm bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "10px 14px 10px 38px",
+                    borderRadius: 8,
+                    background: "#020617",
+                    border: "1.5px solid #334155",
+                    color: "#ffffff",
+                    fontSize: 13,
+                    outline: "none",
+                    transition: "border-color .15s",
+                  }}
+                  onFocus={(e) => (e.target.style.borderColor = "#f97316")}
+                  onBlur={(e) => (e.target.style.borderColor = "#334155")}
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Password
+              <label
+                style={{
+                  display: "block",
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  color: "#cbd5e1",
+                  marginBottom: 6,
+                }}
+              >
+                Admin Password
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                  <Lock className="w-4 h-4" />
+              <div style={{ position: "relative" }}>
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 12,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    pointerEvents: "none",
+                    color: "#64748b",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  <Lock size={16} />
                 </div>
                 <input
                   type="password"
@@ -113,7 +267,20 @@ export default function AdminLoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-9 pr-3 py-2 text-sm bg-slate-950 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "10px 14px 10px 38px",
+                    borderRadius: 8,
+                    background: "#020617",
+                    border: "1.5px solid #334155",
+                    color: "#ffffff",
+                    fontSize: 13,
+                    outline: "none",
+                    transition: "border-color .15s",
+                  }}
+                  onFocus={(e) => (e.target.style.borderColor = "#f97316")}
+                  onBlur={(e) => (e.target.style.borderColor = "#334155")}
                 />
               </div>
             </div>
@@ -121,24 +288,60 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 py-2.5 px-4 bg-orange-600 hover:bg-orange-500 text-white text-sm font-semibold rounded-lg shadow-md shadow-orange-600/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              style={{
+                marginTop: 6,
+                padding: "11px 16px",
+                borderRadius: 8,
+                background: "#ea580c",
+                color: "#ffffff",
+                border: "none",
+                fontSize: 13,
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                cursor: loading ? "not-allowed" : "pointer",
+                boxShadow: "0 4px 12px rgba(234, 88, 12, 0.4)",
+                opacity: loading ? 0.7 : 1,
+                transition: "background .15s",
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) e.currentTarget.style.background = "#c2410c";
+              }}
+              onMouseLeave={(e) => {
+                if (!loading) e.currentTarget.style.background = "#ea580c";
+              }}
             >
               {loading ? "Authenticating..." : "Sign In to Admin Console"}
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight size={16} />
             </button>
           </form>
 
           {/* Role permissions note */}
-          <div className="mt-5 p-3 rounded-lg bg-slate-950/70 border border-slate-800 text-[11px] text-slate-400 space-y-1">
-            <p className="font-semibold text-slate-300">Authorized Admin Activities:</p>
-            <p>• Customer approvals & rate master configuration</p>
-            <p>• Warehouse opening stock & adjustments</p>
-            <p>• Financial reconciliation & cheque clearing</p>
+          <div
+            style={{
+              marginTop: 18,
+              padding: "12px 14px",
+              borderRadius: 8,
+              background: "rgba(2, 6, 23, 0.6)",
+              border: "1px solid rgba(255, 255, 255, 0.06)",
+              fontSize: 11,
+              color: "#94a3b8",
+              lineHeight: 1.6,
+            }}
+          >
+            <p style={{ margin: "0 0 4px 0", fontWeight: 700, color: "#cbd5e1" }}>
+              Authorized Admin Activities:
+            </p>
+            <p style={{ margin: 0 }}>• Customer approvals & rate master configuration</p>
+            <p style={{ margin: 0 }}>• Warehouse opening stock baselines & adjustments</p>
+            <p style={{ margin: 0 }}>• Financial ledger reconciliation & cheque clearing</p>
           </div>
         </div>
 
         {/* Footer */}
-        <p className="text-center text-xs text-slate-500 mt-6">
+        <p style={{ textAlign: "center", fontSize: 11.5, color: "#64748b", marginTop: 22 }}>
           Bachan Gas Service ERP · Enterprise Commercial LPG Management
         </p>
       </div>

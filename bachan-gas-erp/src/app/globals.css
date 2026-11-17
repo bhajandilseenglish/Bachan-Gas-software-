@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 /* ============================================================
    BACHAN GAS SERVICE ERP — Global Stylesheet
    ============================================================ */
@@ -52,7 +54,8 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 a { text-decoration: none; color: inherit; }
-button { cursor: pointer; background: none; border: none; font: inherit; color: inherit; }
+button { cursor: pointer; font: inherit; color: inherit; }
+button:not([class]) { background: none; border: none; }
 input, select, textarea { font: inherit; }
 img { display: block; max-width: 100%; }
 

@@ -5,75 +5,317 @@ import { ShieldCheck, Users, ArrowRight, Flame } from "lucide-react";
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-lg">
+    <div
+      style={{
+        height: "100vh",
+        minHeight: "100vh",
+        width: "100%",
+        overflowY: "auto",
+        background: "radial-gradient(ellipse at 50% 0%, #1e293b 0%, #0f172a 45%, #020617 100%)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "32px 16px",
+        boxSizing: "border-box",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif",
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: 680, margin: "auto" }}>
         {/* Branding */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-600 to-orange-500 text-white shadow-xl shadow-orange-500/20 mb-4">
-            <Flame className="w-9 h-9" />
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <div
+            style={{
+              width: 58,
+              height: 58,
+              borderRadius: 16,
+              background: "linear-gradient(135deg, #f97316 0%, #ea580c 50%, #c2410c 100%)",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 10px 25px rgba(234, 88, 12, 0.4)",
+              marginBottom: 14,
+            }}
+          >
+            <Flame size={32} color="#ffffff" />
           </div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Bachan Gas Service</h1>
-          <p className="text-sm text-slate-400 mt-1.5 font-medium">
+
+          <h1
+            style={{
+              fontSize: 28,
+              fontWeight: 900,
+              color: "#ffffff",
+              letterSpacing: "-0.5px",
+              margin: "0 0 6px 0",
+            }}
+          >
+            Bachan Gas Service
+          </h1>
+
+          <p
+            style={{
+              fontSize: 14,
+              color: "#94a3b8",
+              margin: "0 0 14px 0",
+              fontWeight: 500,
+            }}
+          >
             Commercial LPG Distribution ERP
           </p>
-          <div className="inline-flex items-center gap-2 mt-3 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs text-slate-400">
-            <span>IOCL Distributor Code: <strong className="text-slate-200">0000110351</strong></span>
-            <span>·</span>
+
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "5px 14px",
+              borderRadius: 9999,
+              background: "rgba(255, 255, 255, 0.05)",
+              border: "1px solid rgba(255, 255, 255, 0.12)",
+              fontSize: 12,
+              color: "#cbd5e1",
+            }}
+          >
+            <span>
+              IOCL Distributor Code: <strong style={{ color: "#ffffff" }}>0000110351</strong>
+            </span>
+            <span style={{ opacity: 0.5 }}>·</span>
             <span>Ludhiana, Punjab</span>
           </div>
         </div>
 
         {/* Portal Selection Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(290px, 1fr))",
+            gap: 16,
+            marginBottom: 24,
+          }}
+        >
           {/* Admin Portal Card */}
           <Link
             href="/login/admin"
-            className="group relative bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-orange-500/50 rounded-2xl p-6 transition-all duration-200 shadow-xl shadow-black/40 hover:shadow-orange-500/10 flex flex-col justify-between"
+            style={{
+              background: "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)",
+              border: "1px solid rgba(249, 115, 22, 0.3)",
+              borderRadius: 18,
+              padding: 24,
+              boxShadow: "0 12px 30px rgba(0, 0, 0, 0.5)",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              textDecoration: "none",
+              color: "inherit",
+              transition: "transform .18s, border-color .18s, box-shadow .18s",
+              cursor: "pointer",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-3px)";
+              e.currentTarget.style.borderColor = "rgba(249, 115, 22, 0.8)";
+              e.currentTarget.style.boxShadow = "0 16px 36px rgba(249, 115, 22, 0.25)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.borderColor = "rgba(249, 115, 22, 0.3)";
+              e.currentTarget.style.boxShadow = "0 12px 30px rgba(0, 0, 0, 0.5)";
+            }}
           >
             <div>
-              <div className="w-12 h-12 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400 mb-4 group-hover:scale-105 group-hover:bg-orange-500/20 transition-all">
-                <ShieldCheck className="w-6 h-6" />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 16,
+                }}
+              >
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background: "rgba(249, 115, 22, 0.15)",
+                    border: "1px solid rgba(249, 115, 22, 0.3)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <ShieldCheck size={24} color="#f97316" />
+                </div>
+                <span
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    padding: "3px 8px",
+                    borderRadius: 6,
+                    background: "rgba(249, 115, 22, 0.12)",
+                    color: "#f97316",
+                    border: "1px solid rgba(249, 115, 22, 0.25)",
+                  }}
+                >
+                  Full Governance
+                </span>
               </div>
-              <h2 className="text-base font-bold text-white group-hover:text-orange-400 transition-colors">
+
+              <h2
+                style={{
+                  fontSize: 18,
+                  fontWeight: 800,
+                  color: "#ffffff",
+                  margin: "0 0 8px 0",
+                }}
+              >
                 Administrator
               </h2>
-              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-                Full governance: customer onboarding approvals, product rate master, credit limits, godown inventory, and audit logs.
+
+              <p
+                style={{
+                  fontSize: 12.5,
+                  color: "#94a3b8",
+                  lineHeight: 1.5,
+                  margin: 0,
+                }}
+              >
+                Full governance: customer onboarding approvals, product rate master, credit limits, godown inventory, and financial audit logs.
               </p>
             </div>
-            <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs font-semibold text-orange-400">
+
+            <div
+              style={{
+                marginTop: 22,
+                paddingTop: 14,
+                borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#f97316",
+              }}
+            >
               <span>Admin Login</span>
-              <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+              <ArrowRight size={16} />
             </div>
           </Link>
 
           {/* Staff Portal Card */}
           <Link
             href="/login/staff"
-            className="group relative bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-blue-500/50 rounded-2xl p-6 transition-all duration-200 shadow-xl shadow-black/40 hover:shadow-blue-500/10 flex flex-col justify-between"
+            style={{
+              background: "linear-gradient(180deg, #1e293b 0%, #0f172a 100%)",
+              border: "1px solid rgba(56, 189, 248, 0.3)",
+              borderRadius: 18,
+              padding: 24,
+              boxShadow: "0 12px 30px rgba(0, 0, 0, 0.5)",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              textDecoration: "none",
+              color: "inherit",
+              transition: "transform .18s, border-color .18s, box-shadow .18s",
+              cursor: "pointer",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = "translateY(-3px)";
+              e.currentTarget.style.borderColor = "rgba(56, 189, 248, 0.8)";
+              e.currentTarget.style.boxShadow = "0 16px 36px rgba(56, 189, 248, 0.25)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.borderColor = "rgba(56, 189, 248, 0.3)";
+              e.currentTarget.style.boxShadow = "0 12px 30px rgba(0, 0, 0, 0.5)";
+            }}
           >
             <div>
-              <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-4 group-hover:scale-105 group-hover:bg-blue-500/20 transition-all">
-                <Users className="w-6 h-6" />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 16,
+                }}
+              >
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background: "rgba(56, 189, 248, 0.15)",
+                    border: "1px solid rgba(56, 189, 248, 0.3)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Users size={24} color="#38bdf8" />
+                </div>
+                <span
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    padding: "3px 8px",
+                    borderRadius: 6,
+                    background: "rgba(56, 189, 248, 0.12)",
+                    color: "#38bdf8",
+                    border: "1px solid rgba(56, 189, 248, 0.25)",
+                  }}
+                >
+                  Operations Role
+                </span>
               </div>
-              <h2 className="text-base font-bold text-white group-hover:text-blue-400 transition-colors">
+
+              <h2
+                style={{
+                  fontSize: 18,
+                  fontWeight: 800,
+                  color: "#ffffff",
+                  margin: "0 0 8px 0",
+                }}
+              >
                 Operations Staff
               </h2>
-              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+
+              <p
+                style={{
+                  fontSize: 12.5,
+                  color: "#94a3b8",
+                  lineHeight: 1.5,
+                  margin: 0,
+                }}
+              >
                 Operational tasks: customer lookups, order processing, delivery recording, cylinder returns, and stock receipts.
               </p>
             </div>
-            <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs font-semibold text-blue-400">
+
+            <div
+              style={{
+                marginTop: 22,
+                paddingTop: 14,
+                borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#38bdf8",
+              }}
+            >
               <span>Staff Login</span>
-              <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+              <ArrowRight size={16} />
             </div>
           </Link>
         </div>
 
         {/* Security Notice */}
-        <div className="mt-8 text-center text-xs text-slate-500">
-          <p>Protected Enterprise System · Authenticated Session Required</p>
-          <p className="mt-1">Role-based access strictly enforced according to business security policies</p>
+        <div style={{ textAlign: "center", color: "#64748b", fontSize: 11.5, lineHeight: 1.6 }}>
+          <p style={{ margin: 0 }}>Protected Enterprise System · Authenticated Session Required</p>
+          <p style={{ margin: "2px 0 0 0" }}>Role-based access strictly enforced according to business security policies</p>
         </div>
       </div>
     </div>
