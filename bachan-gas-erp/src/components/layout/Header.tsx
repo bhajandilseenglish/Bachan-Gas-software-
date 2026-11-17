@@ -28,7 +28,6 @@ export default function Header({ onMenu, onToggle, collapsed }: Props) {
     orders,
     deliveries,
     currentUserRole,
-    setCurrentUserRole,
     currentSessionUser,
     logoutUser,
     missedOrderAlerts,
@@ -392,32 +391,31 @@ export default function Header({ onMenu, onToggle, collapsed }: Props) {
         )}
       </div>
 
-      {/* Role Switcher Pill */}
-      <div style={{ display: "flex", alignItems: "center", background: "#f1f5f9", borderRadius: 20, padding: "2px 4px", border: "1px solid #cbd5e1" }}>
-        <button
-          onClick={() => setCurrentUserRole("admin")}
+      {/* Authenticated Role Badge (Read-Only) */}
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "4px 10px",
+          borderRadius: 20,
+          background: currentUserRole === "admin" ? "#fef3c7" : "#e0f2fe",
+          border: `1px solid ${currentUserRole === "admin" ? "#fde68a" : "#bae6fd"}`,
+          fontSize: 11,
+          fontWeight: 700,
+          color: currentUserRole === "admin" ? "#92400e" : "#0369a1",
+        }}
+        title={`Authenticated as ${currentUserRole === "admin" ? "Administrator" : "Operations Staff"}`}
+      >
+        <span
           style={{
-            padding: "4px 10px", borderRadius: 16, border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer",
-            background: currentUserRole === "admin" ? "#1e3a8a" : "transparent",
-            color: currentUserRole === "admin" ? "#fff" : "#64748b",
-            transition: "all .15s"
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: currentUserRole === "admin" ? "#d97706" : "#0284c7",
           }}
-          title="Switch to Administrator view"
-        >
-          Admin
-        </button>
-        <button
-          onClick={() => setCurrentUserRole("staff")}
-          style={{
-            padding: "4px 10px", borderRadius: 16, border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer",
-            background: currentUserRole === "staff" ? "#f97316" : "transparent",
-            color: currentUserRole === "staff" ? "#fff" : "#64748b",
-            transition: "all .15s"
-          }}
-          title="Switch to Staff view (restricted permissions)"
-        >
-          Staff
-        </button>
+        />
+        <span>{currentUserRole === "admin" ? "Admin" : "Staff"}</span>
       </div>
 
       {/* Notifications bell */}
