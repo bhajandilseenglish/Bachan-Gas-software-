@@ -96,6 +96,7 @@ export default function Sidebar({ collapsed, mobileOpen, onClose }: Props) {
         ...(isAdmin
           ? [
               { label: "Outstanding Receivables", href: "/finance/outstanding", Icon: Receipt },
+              { label: "Opening Balances", href: "/finance/opening-balances", Icon: Upload },
               { label: "Credit Limits", href: "/finance/credit", Icon: Shield },
               { label: "Payment Tenure", href: "/finance/tenure", Icon: Calendar },
             ]

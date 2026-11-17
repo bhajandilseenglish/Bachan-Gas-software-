@@ -20,7 +20,8 @@ const card = (s?: React.CSSProperties): React.CSSProperties => ({
 });
 
 export default function CreditManagementPage() {
-  const { customers, updateCreditLimit } = useERPStore();
+  const { customers, updateCreditLimit, currentUserRole } = useERPStore();
+  const isAdmin = currentUserRole === "admin";
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all"|"high_risk"|"moderate">("all");
   const [editingCust, setEditingCust] = useState<Customer | null>(null);
@@ -66,6 +67,15 @@ export default function CreditManagementPage() {
           </p>
         </div>
       </div>
+
+      {!isAdmin && (
+        <div style={{ ...card(), background: "#fef3c7", borderColor: "#fde68a", padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+          <AlertTriangle size={18} color="#b45309" style={{ flexShrink: 0 }} />
+          <div style={{ fontSize: 12.5, color: "#92400e" }}>
+            <strong>Staff View (Read-Only):</strong> Credit limits and terms can only be sanctioned and modified by an Administrator.
+          </div>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
@@ -193,16 +203,20 @@ export default function CreditManagementPage() {
                   </td>
                   <td style={{ padding: "12px 16px", fontSize: 12.5, color: "#64748b" }}>{c.payment_terms}</td>
                   <td style={{ padding: "12px 16px" }}>
-                    <button
-                      onClick={() => {
-                        setEditingCust(c);
-                        setNewLimit(c.credit_limit !== null ? String(c.credit_limit) : "");
-                        setNewTerms(c.payment_terms !== "Not Yet Configured" ? c.payment_terms : "Net 30 Days");
-                      }}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 6, fontSize: 11.5, fontWeight: 600, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer" }}
-                    >
-                      <Edit3 size={12} /> Set Limit
-                    </button>
+                    {isAdmin ? (
+                      <button
+                        onClick={() => {
+                          setEditingCust(c);
+                          setNewLimit(c.credit_limit !== null ? String(c.credit_limit) : "");
+                          setNewTerms(c.payment_terms !== "Not Yet Configured" ? c.payment_terms : "Net 30 Days");
+                        }}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 6, fontSize: 11.5, fontWeight: 600, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer" }}
+                      >
+                        <Edit3 size={12} /> Set Limit
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}>View Only</span>
+                    )}
                   </td>
                 </tr>
               );

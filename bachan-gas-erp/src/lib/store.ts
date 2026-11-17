@@ -34,6 +34,57 @@ export function getKolkataTimeMinutes(): number {
   return h * 60 + m;
 }
 
+// ── UTILITY: EXCEL DATE SERIAL CONVERSION ─────────────────────
+export function formatExcelDate(serialOrDate: string | number | null | undefined): string {
+  if (!serialOrDate) return "—";
+  const str = String(serialOrDate).trim();
+  if (!str || str === "—" || str.toLowerCase() === "na" || str.toLowerCase() === "n/a") return "—";
+
+  const num = Number(str);
+  // Check if it's an Excel serial date number (between 30000 and 75000, covers years 1982 to 2105)
+  if (!isNaN(num) && num >= 30000 && num <= 75000) {
+    // Excel base date: 1899-12-30 (due to Lotus 1-2-3 1900 leap year bug)
+    const d = new Date(Math.round((num - 25569) * 86400 * 1000));
+    if (!isNaN(d.getTime())) {
+      return new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }).format(d);
+    }
+  }
+
+  // If it's already an ISO or readable date string
+  if (isNaN(num)) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      return new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }).format(d);
+    }
+  }
+
+  return str;
+}
+
+// ── UTILITY: CLEAN SANITIZE ADDRESS PLACEHOLDER TEXT ──────────
+export function cleanAddress(addr: string | null | undefined): string {
+  if (!addr) return "—";
+  let cleaned = addr
+    .replace(/\bNA\s*G\/F\b/gi, "")
+    .replace(/\bNA\b/gi, "")
+    .replace(/\s*,\s*,\s*/g, ", ")
+    .replace(/,\s*,/g, ", ")
+    .replace(/^\s*,\s*/, "")
+    .replace(/,\s*$/, "")
+    .trim();
+  return cleaned.replace(/^,\s*/, "").replace(/\s*,\s*$/, "") || "—";
+}
+
 // ── TYPES & INTERFACES ────────────────────────────────────────
 
 export type OrderingFrequency =
@@ -61,10 +112,13 @@ export interface Customer {
   area: string;
   state: string;
   pin: string;
+  address?: string;
   billing_address?: string;
   delivery_address?: string;
   remarks?: string;
   status: "active" | "inactive" | "suspended";
+  verification_status?: "verified" | "needs_admin_review";
+  unclassified_reason?: string;
   approval_status?: "approved" | "pending_approval" | "rejected" | "correction_requested";
   submitted_by?: string;
   approved_by?: string;
@@ -73,7 +127,7 @@ export interface Customer {
 
   // Financial & Tenure
   credit_limit: number | null;
-  payment_tenure_days: number; // e.g. 7, 15, 30, 45
+  payment_tenure_days: number | null; // e.g. 7, 15, 30, or null if not yet agreed
   payment_terms: string;
   outstanding: number | null;
   advance_balance?: number; // Unallocated customer advance balance
@@ -616,44 +670,60 @@ export const INITIAL_BASIC_RATE_HISTORY: BasicRateHistoryItem[] = [
 ];
 
 // Map real commercial records from client's 23.xlsx register
-export const INITIAL_REAL_CUSTOMERS: Customer[] = (realCommercialData as any[]).map((r, idx) => ({
-  id: String(idx + 1),
-  code: r.consumer_number || `CX-${String(idx + 1).padStart(7, "0")}`,
-  sap_code: r.sap_code || (idx < 25 ? `SAP-IND-${String(100000 + idx)}` : undefined),
-  name: r.name || "Commercial Consumer",
-  business: r.name || "Commercial Consumer",
-  category: "commercial",
-  consumer_type: r.consumer_type || "Commercial/Industrial",
-  contact_person: r.name || "Authorized Signatory",
-  mobile: r.phone ? (r.phone.startsWith("+") ? r.phone : `+91 ${r.phone}`) : "—",
-  email: "—",
-  gst: "—",
-  city: r.city || "Ludhiana",
-  area: r.area || "Industrial Area",
-  state: "Punjab",
-  pin: "141003",
-  status: "active",
-  credit_limit: null,
-  payment_tenure_days: 15,
-  payment_terms: "15 Days",
-  outstanding: null,
-  advance_balance: 0,
-  overdue: null,
-  last_payment: null,
-  last_payment_date: "—",
-  last_supply: r.last_refill ? `Refill Date: ${r.last_refill}` : "—",
-  last_supply_qty: 0,
-  last_supply_product: r.product || "19 kg normal",
-  pending_orders: 0,
-  created_at: "2026-11-03",
-  is_financial_configured: false,
-  total_filled_delivered: 0,
-  total_empty_received: 0,
-  empty_cylinders_pending: 0,
-  ordering_frequency: "not_configured",
-  missed_order_alert_active: false,
-  alert_paused: false,
-}));
+export const INITIAL_REAL_CUSTOMERS: Customer[] = (realCommercialData as any[]).map((r, idx) => {
+  const hasValidPhone = r.phone && String(r.phone).trim().length >= 10 && String(r.phone).trim() !== "0";
+  const isDomestic = (r.consumer_type && r.consumer_type.toUpperCase().includes("DOM")) || (r.category && r.category.toUpperCase().includes("DOM"));
+  const category = isDomestic ? ("domestic" as const) : ("commercial" as const);
+  const verification_status = hasValidPhone ? ("verified" as const) : ("needs_admin_review" as const);
+  const unclassified_reason = !hasValidPhone ? "Missing or incomplete contact phone number" : undefined;
+  const formattedRefillDate = r.last_refill ? formatExcelDate(r.last_refill) : "—";
+  const sanitizedAddress = cleanAddress(r.address);
+
+  return {
+    id: String(idx + 1),
+    code: r.consumer_number || `CX-${String(idx + 1).padStart(7, "0")}`,
+    sap_code: r.sap_code || (idx < 25 ? `SAP-IND-${String(100000 + idx)}` : undefined),
+    name: r.name || "Commercial Consumer",
+    business: r.name || "Commercial Consumer",
+    category,
+    consumer_type: r.consumer_type || "Commercial/Industrial",
+    contact_person: r.name || "Authorized Signatory",
+    mobile: r.phone ? (r.phone.startsWith("+") ? r.phone : `+91 ${r.phone}`) : "—",
+    email: "—",
+    gst: "—",
+    address: sanitizedAddress,
+    billing_address: sanitizedAddress,
+    delivery_address: sanitizedAddress,
+    city: r.city || "Ludhiana",
+    area: r.area || "Industrial Area",
+    state: "Punjab",
+    pin: "141003",
+    status: "active",
+    verification_status,
+    unclassified_reason,
+    credit_limit: null,
+    payment_tenure_days: null,
+    payment_terms: "Not Configured",
+    outstanding: null,
+    advance_balance: 0,
+    overdue: null,
+    last_payment: null,
+    last_payment_date: "—",
+    last_supply: r.last_refill ? `Refill Date: ${formattedRefillDate}` : "—",
+    last_supply_date: formattedRefillDate !== "—" ? formattedRefillDate : undefined,
+    last_supply_qty: 0,
+    last_supply_product: r.product || "19 kg normal",
+    pending_orders: 0,
+    created_at: "2026-11-03",
+    is_financial_configured: false,
+    total_filled_delivered: 0,
+    total_empty_received: 0,
+    empty_cylinders_pending: 0,
+    ordering_frequency: "not_configured",
+    missed_order_alert_active: false,
+    alert_paused: false,
+  };
+});
 
 export const INITIAL_AUDIT_LOGS: AuditLog[] = [
   {
@@ -836,6 +906,10 @@ interface ERPStore {
   // Credit Management Actions
   updateCreditLimit: (customerId: string, limit: number, terms?: string) => void;
 
+  // Opening Balance Actions
+  setCustomerOpeningBalance: (customerId: string, balance: number, balanceType: "debit" | "credit", asOfDate?: string) => void;
+  bulkImportOpeningBalances: (records: Array<{ customerCodeOrId: string; balance: number; balanceType: "debit" | "credit"; asOfDate?: string }>) => { imported: number; failed: number };
+
   // Import Actions
   recordImportBatch: (batch: Omit<ImportBatch, "id">) => void;
   bulkAddCustomers: (customers: Omit<Customer, "id" | "code" | "created_at">[]) => number;
@@ -887,8 +961,8 @@ export const useERPStore = create<ERPStore>()(
           id: String(Date.now()),
           code,
           credit_limit: c.credit_limit ?? null,
-          payment_tenure_days: c.payment_tenure_days || 15,
-          payment_terms: `${c.payment_tenure_days || 15} Days`,
+          payment_tenure_days: c.payment_tenure_days ?? null,
+          payment_terms: c.payment_tenure_days ? `${c.payment_tenure_days} Days` : "Not Configured",
           outstanding: null,
           overdue: null,
           last_payment: null,
@@ -2183,6 +2257,116 @@ export const useERPStore = create<ERPStore>()(
             ...state.auditLogs,
           ],
         }));
+      },
+
+      // ── OPENING BALANCES ──
+      setCustomerOpeningBalance: (customerId, balance, balanceType, asOfDate) => {
+        const cust = get().customers.find((c) => c.id === customerId || c.code === customerId);
+        if (!cust) throw new Error("Customer not found.");
+
+        const outstanding = balanceType === "debit" ? balance : -balance;
+        const advanceBalance = balanceType === "credit" ? balance : 0;
+        const formattedDate = asOfDate || getKolkataFormattedDate();
+
+        const openingLedgerEntry: LedgerEntry = {
+          id: `led-op-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          date: formattedDate,
+          customerId: cust.id,
+          type: "adjustment",
+          ref: "OP-BAL-001",
+          desc: `Opening Balance as of ${formattedDate} (${balanceType.toUpperCase()})`,
+          debit: balanceType === "debit" ? balance : 0,
+          credit: balanceType === "credit" ? balance : 0,
+          balance: outstanding,
+        };
+
+        set((state) => ({
+          customers: state.customers.map((c) =>
+            c.id === cust.id
+              ? {
+                  ...c,
+                  outstanding,
+                  advance_balance: advanceBalance,
+                  is_financial_configured: true,
+                }
+              : c
+          ),
+          ledger: [openingLedgerEntry, ...state.ledger],
+          auditLogs: [
+            {
+              id: `a-${Date.now()}`,
+              timestamp: getKolkataFormattedDate(),
+              user: get().currentSessionUser?.username || "Bachan Admin",
+              action: "update",
+              resource: `Opening Balance: ${cust.name}`,
+              details: `Set opening balance of ₹${balance.toLocaleString("en-IN")} ${balanceType.toUpperCase()} as of ${formattedDate}`,
+              ip: "127.0.0.1",
+            },
+            ...state.auditLogs,
+          ],
+        }));
+      },
+
+      bulkImportOpeningBalances: (records) => {
+        let imported = 0;
+        let failed = 0;
+        const newLedgerEntries: LedgerEntry[] = [];
+        const stateCustomers = [...get().customers];
+
+        for (const r of records) {
+          const custIdx = stateCustomers.findIndex(
+            (c) => c.id === r.customerCodeOrId || c.code === r.customerCodeOrId
+          );
+          if (custIdx === -1) {
+            failed++;
+            continue;
+          }
+
+          const cust = stateCustomers[custIdx];
+          const outstanding = r.balanceType === "debit" ? r.balance : -r.balance;
+          const advanceBalance = r.balanceType === "credit" ? r.balance : 0;
+          const formattedDate = r.asOfDate || getKolkataFormattedDate();
+
+          stateCustomers[custIdx] = {
+            ...cust,
+            outstanding,
+            advance_balance: advanceBalance,
+            is_financial_configured: true,
+          };
+
+          newLedgerEntries.push({
+            id: `led-op-${Date.now()}-${imported}-${Math.random().toString(36).slice(2, 6)}`,
+            date: formattedDate,
+            customerId: cust.id,
+            type: "adjustment",
+            ref: "OP-BAL-IMPORT",
+            desc: `Opening Balance Import (${r.balanceType.toUpperCase()})`,
+            debit: r.balanceType === "debit" ? r.balance : 0,
+            credit: r.balanceType === "credit" ? r.balance : 0,
+            balance: outstanding,
+          });
+
+          imported++;
+        }
+
+        set((state) => ({
+          customers: stateCustomers,
+          ledger: [...newLedgerEntries, ...state.ledger],
+          auditLogs: [
+            {
+              id: `a-${Date.now()}`,
+              timestamp: getKolkataFormattedDate(),
+              user: get().currentSessionUser?.username || "Bachan Admin",
+              action: "create",
+              resource: "Opening Balance Batch Import",
+              details: `Imported ${imported} customer opening balances. Failed/Unmatched: ${failed}`,
+              ip: "127.0.0.1",
+            },
+            ...state.auditLogs,
+          ],
+        }));
+
+        return { imported, failed };
       },
 
       // ── IMPORTS ──

@@ -13,7 +13,7 @@ const INR = (n: number | null | undefined) => {
 function NewOrderForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const preSelectedCustomerId = searchParams.get("customer_id") || searchParams.get("customerId") || "";
+  const preSelectedCustomerId = searchParams.get("customer") || searchParams.get("customer_id") || searchParams.get("customerId") || "";
 
   const { customers, products, customerRates, currentUserRole, setCustomerRate, getApplicableRate, createOrder, orders } = useERPStore();
   const [pending, startTransition] = useTransition();
@@ -289,14 +289,14 @@ function NewOrderForm() {
                 <div style={{ fontSize: 9.5, color: "#94a3b8" }}>Remaining credit</div>
               </div>
               <div style={{ background: "#fff", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Pending Udhaar</div>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Balance Pending</div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: (selectedCustomer.outstanding || 0) > 0 ? "#dc2626" : "#16a34a", marginTop: 2 }}>
                   {INR(selectedCustomer.outstanding)}
                 </div>
                 <div style={{ fontSize: 9.5, color: "#94a3b8" }}>Current due balance</div>
               </div>
               <div style={{ background: "#fff", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Advance (Jama)</div>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Advance Balance</div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: (selectedCustomer.advance_balance || 0) > 0 ? "#16a34a" : "#64748b", marginTop: 2 }}>
                   {INR(selectedCustomer.advance_balance || 0)}
                 </div>
@@ -310,7 +310,7 @@ function NewOrderForm() {
                 <div style={{ fontSize: 9.5, color: "#94a3b8" }}>Payment tenure</div>
               </div>
               <div style={{ background: "#fff", padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Khali Cylinders</div>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Empty Cylinders Pending</div>
                 <div style={{ fontSize: 14, fontWeight: 900, color: (selectedCustomer.empty_cylinders_pending || 0) > 0 ? "#ea580c" : "#16a34a", marginTop: 2 }}>
                   {selectedCustomer.empty_cylinders_pending || 0} cyl
                 </div>

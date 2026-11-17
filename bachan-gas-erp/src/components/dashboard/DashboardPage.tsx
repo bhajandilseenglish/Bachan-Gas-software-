@@ -330,7 +330,7 @@ export default function DashboardPage() {
               <Users size={19} color="#fff" />
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 900 }}>5. Customer Khata</div>
+              <div style={{ fontSize: 14, fontWeight: 900 }}>5. Customer Ledger</div>
               <div style={{ fontSize: 11, color: "#cbd5e1" }}>Check balance & rates</div>
             </div>
           </Link>

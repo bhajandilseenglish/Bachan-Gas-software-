@@ -124,6 +124,36 @@ assert(!dashboardSrc.includes("Khali cylinder wapsi"), "Dashboard uses 'Empty cy
 assert(!dashboardSrc.includes("Market Udhaar"), "Dashboard uses 'Financial Receivables & Collections'");
 assert(!dashboardSrc.includes("Overdue Udhaar"), "Dashboard uses 'Overdue Receivables'");
 
+// TEST 8: Excel Date Serial Conversion & Address Sanitization
+console.log("\nTEST SUITE 8: Customer Database Excel Dates & Address Sanitization");
+assert(storeSrc.includes("formatExcelDate"), "formatExcelDate conversion function exists in store");
+assert(storeSrc.includes("cleanAddress"), "cleanAddress function exists in store to sanitize NA G/F placeholders");
+assert(storeSrc.includes("verification_status"), "Customer model supports verification_status for review workflow");
+
+// TEST 9: Dedicated Admin Opening Balance Module
+console.log("\nTEST SUITE 9: Dedicated Admin Opening Balance Module & Store Actions");
+const openingBalancesPagePath = path.join(__dirname, "../src/app/(app)/finance/opening-balances/page.tsx");
+assert(fs.existsSync(openingBalancesPagePath), "Admin Opening Balances route /finance/opening-balances exists");
+const openingBalSrc = fs.readFileSync(openingBalancesPagePath, "utf8");
+assert(openingBalSrc.includes("setCustomerOpeningBalance"), "Supports single customer opening balance configuration");
+assert(openingBalSrc.includes("bulkImportOpeningBalances"), "Supports bulk CSV opening balance import");
+assert(storeSrc.includes("setCustomerOpeningBalance"), "Store implements setCustomerOpeningBalance action");
+assert(storeSrc.includes("bulkImportOpeningBalances"), "Store implements bulkImportOpeningBalances action");
+
+// TEST 10: Role Boundaries in Credit Management
+console.log("\nTEST SUITE 10: Role Boundaries Enforcement in Credit Management");
+const creditPagePath = path.join(__dirname, "../src/app/(app)/finance/credit/page.tsx");
+const creditSrc = fs.readFileSync(creditPagePath, "utf8");
+assert(creditSrc.includes("currentUserRole"), "Credit management reads currentUserRole");
+assert(creditSrc.includes("Staff View (Read-Only)"), "Displays Staff View notice when logged in as staff");
+
+// TEST 11: Customer Register Segment & Badge for Admin Review
+console.log("\nTEST SUITE 11: Customer Register Review Segments & Status Badges");
+const customersPagePath = path.join(__dirname, "../src/components/customers/CustomersPage.tsx");
+const custsSrc = fs.readFileSync(customersPagePath, "utf8");
+assert(custsSrc.includes("Needs Admin Review"), "Customer register includes 'Needs Admin Review' segment");
+assert(custsSrc.includes("Review Needed"), "Displays 'Review Needed' badge on unverified records");
+
 console.log("\n======================================================================");
 console.log(`TOTAL TESTS: ${totalTests} | PASSED: ${passedTests} | FAILED: ${totalTests - passedTests}`);
 if (passedTests === totalTests) {

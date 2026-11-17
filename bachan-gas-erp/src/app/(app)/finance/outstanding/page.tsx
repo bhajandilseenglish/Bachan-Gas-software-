@@ -72,9 +72,28 @@ export default function OutstandingPage() {
             Customer balance tracking, credit exposure monitoring, and overdue debit reconciliation
           </p>
         </div>
-        <button onClick={handleExportCSV} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, fontSize: 12.5, fontWeight: 600, background: "#fff", color: "#64748b", border: "1.5px solid #e2e8f0", cursor: "pointer" }}>
-          <Download size={14} /> Export Aging Report
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Link
+            href="/finance/opening-balances"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 14px",
+              borderRadius: 8,
+              fontSize: 12.5,
+              fontWeight: 600,
+              background: "#1e3a8a",
+              color: "#ffffff",
+              textDecoration: "none",
+            }}
+          >
+            Configure Opening Balances
+          </Link>
+          <button onClick={handleExportCSV} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, fontSize: 12.5, fontWeight: 600, background: "#fff", color: "#64748b", border: "1.5px solid #e2e8f0", cursor: "pointer" }}>
+            <Download size={14} /> Export Aging Report
+          </button>
+        </div>
       </div>
 
       {/* KPIs */}
@@ -93,15 +112,15 @@ export default function OutstandingPage() {
         </div>
 
         <div style={{ ...card(), padding: "14px 16px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: totalOverdue > 0 ? "#dc2626" : "#16a34a", marginBottom: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: configuredCusts.length === 0 ? "#d97706" : (totalOverdue > 0 ? "#dc2626" : "#16a34a"), marginBottom: 6 }}>
             <AlertCircle size={17} />
             <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em" }}>Overdue (&gt;30 Days)</span>
           </div>
-          <div style={{ fontSize: 20, fontWeight: 900, color: totalOverdue > 0 ? "#dc2626" : "#16a34a" }}>
-            {totalOverdue > 0 ? INR(totalOverdue) : "₹0"}
+          <div style={{ fontSize: 20, fontWeight: 900, color: configuredCusts.length === 0 ? "#d97706" : (totalOverdue > 0 ? "#dc2626" : "#16a34a") }}>
+            {configuredCusts.length === 0 ? "Not Configured" : (totalOverdue > 0 ? INR(totalOverdue) : "₹0")}
           </div>
           <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
-            {totalOverdue > 0 ? "Requires payment recovery" : "Zero overdue accounts"}
+            {configuredCusts.length === 0 ? "Opening balances not yet configured" : (totalOverdue > 0 ? "Requires payment recovery" : "Zero overdue accounts")}
           </div>
         </div>
 

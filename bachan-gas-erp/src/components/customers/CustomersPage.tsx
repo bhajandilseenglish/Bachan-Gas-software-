@@ -34,7 +34,7 @@ export default function CustomersPage() {
   const { customers, deleteCustomer } = useERPStore();
 
   const [search, setSearch] = useState("");
-  const [segment, setSegment] = useState<"commercial" | "domestic" | "all">("commercial");
+  const [segment, setSegment] = useState<"commercial" | "domestic" | "needs_review" | "all">("commercial");
   const [cat, setCat] = useState("all");
   const [status, setStatus] = useState("all");
 
@@ -42,6 +42,8 @@ export default function CustomersPage() {
     const qCat = searchParams.get("category");
     if (qCat === "domestic") {
       setSegment("domestic");
+    } else if (qCat === "needs_review") {
+      setSegment("needs_review");
     } else if (qCat === "all") {
       setSegment("all");
     } else {
@@ -51,10 +53,12 @@ export default function CustomersPage() {
 
   const commercialCount = customers.filter(c => c.category !== "domestic").length;
   const domesticCount = customers.filter(c => c.category === "domestic").length;
+  const needsReviewCount = customers.filter(c => c.verification_status === "needs_admin_review").length;
 
   const filtered = customers.filter(c => {
     if (segment === "commercial" && c.category === "domestic") return false;
     if (segment === "domestic" && c.category !== "domestic") return false;
+    if (segment === "needs_review" && c.verification_status !== "needs_admin_review") return false;
 
     if (cat !== "all" && c.category !== cat) return false;
     if (status !== "all" && c.status !== status) return false;
@@ -150,11 +154,12 @@ export default function CustomersPage() {
         ))}
       </div>
 
-      {/* Segment Selector: Commercial vs Domestic vs All */}
+      {/* Segment Selector: Commercial vs Domestic vs Needs Review vs All */}
       <div style={{ display: "flex", gap: 8, borderBottom: "1.5px solid #e2e8f0", paddingBottom: 2, overflowX: "auto" }}>
         {[
           { id: "commercial", label: `Commercial Accounts (${commercialCount})` },
           { id: "domestic", label: `Domestic Subsidised (${domesticCount})` },
+          { id: "needs_review", label: `Needs Admin Review (${needsReviewCount})` },
           { id: "all", label: `All Accounts (${customers.length})` },
         ].map(t => {
           const isActive = segment === t.id;
@@ -270,7 +275,28 @@ export default function CustomersPage() {
                             {c.name[0]}
                           </div>
                           <div>
-                            <div style={{ fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{c.name}</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ fontWeight: 700, fontSize: 13, color: "#1e293b" }}>{c.name}</span>
+                              {c.verification_status === "needs_admin_review" && (
+                                <span
+                                  title={c.unclassified_reason || "Requires Admin Review"}
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 3,
+                                    padding: "1px 6px",
+                                    borderRadius: 4,
+                                    fontSize: 9.5,
+                                    fontWeight: 700,
+                                    background: "#fef3c7",
+                                    color: "#92400e",
+                                    border: "1px solid #fde68a"
+                                  }}
+                                >
+                                  Review Needed
+                                </span>
+                              )}
+                            </div>
                             <div style={{ fontSize: 11, color: "#64748b" }}>{c.business}</div>
                           </div>
                         </div>
