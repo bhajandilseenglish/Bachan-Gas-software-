@@ -8,11 +8,11 @@ import {
 } from "lucide-react";
 import { useERPStore, PaymentReceipt, PaymentMethod, ChequeStatus } from "@/lib/store";
 
-const card = (s?: React.CSSProperties): React.CSSProperties => ({
-  background: "#fff",
+const cardStyle = (s?: React.CSSProperties): React.CSSProperties => ({
+  background: "#ffffff",
   border: "1px solid #e2e8f0",
-  borderRadius: 12,
-  boxShadow: "0 1px 3px rgba(0,0,0,.06)",
+  borderRadius: 14,
+  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
   ...s,
 });
 
@@ -98,269 +98,324 @@ export default function PaymentsPage() {
             ? bankUtr
             : method === "Cheque"
             ? chequeNum
-            : otherRef || undefined,
-        remarks: remarks || undefined,
+            : method === "Other"
+            ? otherRef
+            : undefined,
+        remarks: remarks.trim() || undefined,
         receivedBy: currentSessionUser?.fullName || (isAdmin ? "Bachan Admin" : "Staff User"),
-        upiDetails: method === "UPI" ? { utrRef: upiUtr, provider: upiProvider } : undefined,
-        bankDetails: method === "Bank Transfer" ? { utrRef: bankUtr, bankName, transferDate: bankDate } : undefined,
+        upiDetails:
+          method === "UPI"
+            ? { utrRef: upiUtr.trim(), provider: upiProvider }
+            : undefined,
+        bankDetails:
+          method === "Bank Transfer"
+            ? { bankName: bankName.trim(), utrRef: bankUtr.trim(), transferDate: bankDate }
+            : undefined,
         chequeDetails:
           method === "Cheque"
             ? {
-                chequeNum,
+                chequeNum: chequeNum.trim(),
                 chequeDate,
-                bankName: chequeBank,
+                bankName: chequeBank.trim(),
                 status: "received",
               }
             : undefined,
-        otherDetails: method === "Other" ? { description: otherDesc, refNum: otherRef } : undefined,
+        otherDetails:
+          method === "Other"
+            ? { description: otherDesc.trim(), refNum: otherRef.trim() || undefined }
+            : undefined,
       });
 
       setMsg({
         type: "success",
-        text: `Receipt ${receipt.receiptNum || receipt.num} recorded successfully!`,
+        text: `Payment Receipt ${receipt.receiptNum} recorded successfully!`,
       });
       setAmount("");
+      setRemarks("");
       setUpiUtr("");
       setBankUtr("");
       setChequeNum("");
-      setRemarks("");
-
-      setTimeout(() => {
-        setShowForm(false);
-        setMsg(null);
-        setActiveReceiptModal(receipt);
-      }, 800);
+      setOtherDesc("");
+      setOtherRef("");
+      setShowForm(false);
+      setActiveReceiptModal(receipt);
     } catch (err: any) {
-      setMsg({ type: "error", text: err.message || "Failed to record payment." });
+      setMsg({ type: "error", text: err.message || "Failed to record payment receipt." });
     }
   };
 
   const handleExportCSV = () => {
     const headers = [
-      "Receipt #",
-      "Customer Name",
-      "Customer Code",
+      "Receipt Number",
+      "Payment ID",
       "Date",
-      "Amount (₹)",
-      "Method",
-      "Reference / Cheque #",
+      "Customer Code",
+      "Customer Name",
+      "Amount",
+      "Payment Method",
       "Status",
-      "Received By",
+      "Reference",
+      "Recorded By",
     ];
+
     const rows = filtered.map(p => [
       p.receiptNum || p.num,
-      `"${p.customerName}"`,
-      p.customerCode,
+      p.num,
       p.date,
+      p.customerCode,
+      `"${p.customerName.replace(/"/g, '""')}"`,
       p.amount,
       p.method,
-      `"${p.ref || "—"}"`,
       p.status,
-      `"${p.receivedBy}"`,
+      `"${(p.ref || "").replace(/"/g, '""')}"`,
+      `"${(p.receivedBy || "").replace(/"/g, '""')}"`,
     ]);
-    const csvContent =
-      "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `BGS_Receipts_${new Date().toISOString().split("T")[0]}.csv`);
+    link.setAttribute("download", `Bachan_Gas_Payment_Receipts_${new Date().toISOString().split("T")[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-4">
+    <div style={{ maxWidth: 1280, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
+      {/* ── HEADER ── */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, borderBottom: "1px solid #e2e8f0", paddingBottom: 14 }}>
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Payment Receipts & Settlements</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0f172a", margin: 0, letterSpacing: "-0.4px" }}>
+              Payment Receipts & Settlements
+            </h1>
+            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6, background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0" }}>
               Distributor Code: 0000110351
             </span>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
-            Cash, UPI, Bank Transfer, and Cheque payment management with conditional fields and settlement rules
+          <p style={{ margin: "4px 0 0 0", color: "#64748b", fontSize: 13 }}>
+            Cash, UPI, Bank Transfer, and Cheque payment management with conditional settlement fields
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <button
             onClick={handleExportCSV}
-            className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "9px 14px", borderRadius: 8,
+              background: "#ffffff", border: "1.5px solid #cbd5e1",
+              color: "#334155", fontSize: 12.5, fontWeight: 700, cursor: "pointer"
+            }}
           >
-            <Download className="w-4 h-4" />
+            <Download size={15} />
             Export Receipts
           </button>
           <button
             onClick={() => setShowForm(true)}
-            className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold shadow-sm inline-flex items-center gap-1.5 transition-colors"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "9px 16px", borderRadius: 8, border: "none",
+              background: "#ea580c", color: "#ffffff", fontSize: 12.5, fontWeight: 700,
+              cursor: "pointer", boxShadow: "0 2px 6px rgba(234,88,12,0.3)"
+            }}
           >
-            <Plus className="w-4 h-4" />
+            <Plus size={16} />
             Record Payment Receipt
           </button>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+      {/* ── SUMMARY KPI CARDS ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
+        <div style={{ ...cardStyle(), padding: 18, borderLeft: "4px solid #16a34a" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#64748b", fontSize: 11.5, fontWeight: 700, textTransform: "uppercase" }}>
             <span>Total Cleared Receipts</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <CheckCircle2 size={16} color="#16a34a" />
           </div>
-          <div className="text-2xl font-extrabold text-slate-900 mt-2">
+          <div style={{ fontSize: 24, fontWeight: 900, color: "#0f172a", marginTop: 8 }}>
             ₹{totalCleared.toLocaleString("en-IN")}
           </div>
-          <span className="text-[11px] text-emerald-600 font-semibold mt-1 block">
+          <div style={{ fontSize: 11, color: "#16a34a", fontWeight: 700, marginTop: 4 }}>
             {payments.filter(p => p.status === "cleared").length} settled payments
-          </span>
+          </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+        <div style={{ ...cardStyle(), padding: 18, borderLeft: "4px solid #f59e0b" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#64748b", fontSize: 11.5, fontWeight: 700, textTransform: "uppercase" }}>
             <span>Cheques Pending Clearing</span>
-            <Clock className="w-4 h-4 text-amber-600" />
+            <Clock size={16} color="#d97706" />
           </div>
-          <div className="text-2xl font-extrabold text-amber-700 mt-2">
+          <div style={{ fontSize: 24, fontWeight: 900, color: "#b45309", marginTop: 8 }}>
             ₹{totalPendingCheques.toLocaleString("en-IN")}
           </div>
-          <span className="text-[11px] text-slate-500 mt-1 block">
-            {pendingCheques.length} uncleared cheques (Balance not reduced until cleared)
-          </span>
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
+            {pendingCheques.length} uncleared cheques (Balance deferred until cleared)
+          </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+        <div style={{ ...cardStyle(), padding: 18, borderLeft: "4px solid #0284c7" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#64748b", fontSize: 11.5, fontWeight: 700, textTransform: "uppercase" }}>
             <span>Total Payment Records</span>
-            <CreditCard className="w-4 h-4 text-blue-600" />
+            <CreditCard size={16} color="#0284c7" />
           </div>
-          <div className="text-2xl font-extrabold text-slate-900 mt-2">
+          <div style={{ fontSize: 24, fontWeight: 900, color: "#0f172a", marginTop: 8 }}>
             {payments.length}
           </div>
-          <span className="text-[11px] text-slate-500 mt-1 block">
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
             Across Cash, UPI, RTGS/NEFT & Cheque
-          </span>
+          </div>
         </div>
       </div>
 
-      {/* Cheque Clearing Settlement Notice */}
-      <div className="p-3.5 rounded-xl border border-blue-200 bg-blue-50/70 text-xs text-blue-900 flex items-start gap-2.5">
-        <Shield className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+      {/* ── SETTLEMENT NOTICE BANNER ── */}
+      <div
+        style={{
+          padding: "12px 16px",
+          borderRadius: 10,
+          border: "1px solid #bae6fd",
+          background: "#f0f9ff",
+          color: "#0369a1",
+          fontSize: 12.5,
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 10,
+          lineHeight: 1.5,
+        }}
+      >
+        <Shield size={18} color="#0284c7" style={{ flexShrink: 0, marginTop: 2 }} />
         <div>
           <strong>Financial Settlement Rule:</strong> Payments received via Cheque remain in &quot;Pending&quot; status and do not reduce the customer&apos;s outstanding balance until an Administrator marks them &quot;Cleared&quot;. This maintains strict ledger integrity.
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative w-full sm:w-96">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-            <Search className="w-4 h-4" />
+      {/* ── FILTER & SEARCH ── */}
+      <div style={{ ...cardStyle(), padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+        <div style={{ position: "relative", minWidth: 280, flex: 1, maxWidth: 440 }}>
+          <div style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", display: "flex", alignItems: "center" }}>
+            <Search size={15} />
           </div>
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search receipt #, customer name, code, or UTR/cheque #..."
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-orange-500"
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "8px 12px 8px 36px",
+              borderRadius: 8,
+              border: "1.5px solid #cbd5e1",
+              fontSize: 12.5,
+              background: "#f8fafc",
+              color: "#0f172a",
+              outline: "none",
+            }}
           />
         </div>
-        <span className="text-xs text-slate-500 font-medium">
+        <span style={{ fontSize: 12, color: "#64748b" }}>
           Showing <strong>{filtered.length}</strong> payment receipts
         </span>
       </div>
 
-      {/* Payments Table */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+      {/* ── PAYMENTS TABLE ── */}
+      <div style={{ ...cardStyle(), overflow: "hidden" }}>
         {filtered.length === 0 ? (
-          <div className="p-12 text-center text-xs text-slate-500">
+          <div style={{ padding: "48px 24px", textAlign: "center", fontSize: 12.5, color: "#64748b" }}>
             No payment receipts match your search. Click &quot;Record Payment Receipt&quot; to issue a new receipt.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-                <tr>
-                  <th className="py-3 px-4">Receipt #</th>
-                  <th className="py-3 px-4">Date</th>
-                  <th className="py-3 px-4">Customer Name & Code</th>
-                  <th className="py-3 px-4 text-right">Amount (₹)</th>
-                  <th className="py-3 px-4">Payment Method</th>
-                  <th className="py-3 px-4">Reference / Details</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, textAlign: "left" }}>
+              <thead>
+                <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0", color: "#475569" }}>
+                  <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Receipt #</th>
+                  <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Date</th>
+                  <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Customer Name & Code</th>
+                  <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: 11, textTransform: "uppercase", textAlign: "right" }}>Amount (₹)</th>
+                  <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Method</th>
+                  <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Reference / Details</th>
+                  <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Status</th>
+                  <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: 11, textTransform: "uppercase", textAlign: "right" }}>Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {filtered.map((pay) => (
-                  <tr key={pay.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 px-4 font-mono font-bold text-slate-900">
+                  <tr key={pay.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ padding: "14px 16px", fontWeight: 700, fontFamily: "monospace", color: "#0f172a" }}>
                       {pay.receiptNum || pay.num}
                     </td>
 
-                    <td className="py-3 px-4 text-slate-600">{pay.date}</td>
+                    <td style={{ padding: "14px 16px", color: "#475569" }}>{pay.date}</td>
 
-                    <td className="py-3 px-4">
-                      <div className="font-bold text-slate-900">{pay.customerName}</div>
-                      <span className="text-[10px] font-mono text-slate-500">{pay.customerCode}</span>
+                    <td style={{ padding: "14px 16px" }}>
+                      <div style={{ fontWeight: 800, color: "#0f172a" }}>{pay.customerName}</div>
+                      <span style={{ fontSize: 10.5, fontFamily: "monospace", color: "#64748b" }}>{pay.customerCode}</span>
                     </td>
 
-                    <td className="py-3 px-4 text-right">
-                      <span className="font-extrabold text-sm text-slate-900">
+                    <td style={{ padding: "14px 16px", textAlign: "right" }}>
+                      <span style={{ fontWeight: 900, color: "#0f172a", fontSize: 13.5 }}>
                         ₹{pay.amount.toLocaleString("en-IN")}
                       </span>
                     </td>
 
-                    <td className="py-3 px-4">
-                      <span className="px-2 py-0.5 rounded font-semibold text-[11px] bg-slate-100 text-slate-700">
+                    <td style={{ padding: "14px 16px" }}>
+                      <span style={{ padding: "3px 8px", borderRadius: 6, fontWeight: 700, fontSize: 11, background: "#f1f5f9", color: "#334155" }}>
                         {pay.method}
                       </span>
                     </td>
 
-                    <td className="py-3 px-4 text-slate-600 text-[11px]">
+                    <td style={{ padding: "14px 16px", fontSize: 11.5, color: "#475569" }}>
                       {pay.method === "Cheque" && pay.chequeDetails ? (
                         <div>
-                          <div>Cheque #{pay.chequeDetails.chequeNum}</div>
-                          <span className="text-slate-400">{pay.chequeDetails.bankName}</span>
+                          <div style={{ fontWeight: 700 }}>Cheque #{pay.chequeDetails.chequeNum}</div>
+                          <span style={{ color: "#94a3b8" }}>{pay.chequeDetails.bankName}</span>
                         </div>
                       ) : (
                         <span>{pay.ref || "—"}</span>
                       )}
                     </td>
 
-                    <td className="py-3 px-4">
+                    <td style={{ padding: "14px 16px" }}>
                       {pay.status === "cleared" ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span style={{ padding: "3px 8px", borderRadius: 6, fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", background: "#dcfce7", color: "#15803d", border: "1px solid #bbf7d0" }}>
                           Cleared
                         </span>
                       ) : pay.status === "pending" ? (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-50 text-amber-700 border border-amber-200">
+                        <span style={{ padding: "3px 8px", borderRadius: 6, fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a" }}>
                           Pending Clearing
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-red-50 text-red-700 border border-red-200">
+                        <span style={{ padding: "3px 8px", borderRadius: 6, fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", background: "#fee2e2", color: "#991b1b", border: "1px solid #fecaca" }}>
                           Bounced
                         </span>
                       )}
                     </td>
 
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                    <td style={{ padding: "14px 16px", textAlign: "right" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
                         <button
                           onClick={() => setActiveReceiptModal(pay)}
-                          className="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] inline-flex items-center gap-1"
+                          style={{
+                            padding: "6px 12px", borderRadius: 6, border: "1.5px solid #cbd5e1",
+                            background: "#ffffff", color: "#334155", fontSize: 11.5, fontWeight: 700,
+                            cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4
+                          }}
                         >
-                          <Printer className="w-3 h-3" />
-                          View Receipt
+                          <Printer size={13} />
+                          Receipt
                         </button>
 
                         {/* Cheque Clearing button for Admin */}
                         {isAdmin && pay.method === "Cheque" && pay.status === "pending" && (
                           <button
                             onClick={() => updateChequeStatus(pay.id, "cleared", currentSessionUser?.fullName || "Bachan Admin")}
-                            className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] shadow-sm"
+                            style={{
+                              padding: "6px 12px", borderRadius: 6, border: "none",
+                              background: "#16a34a", color: "#ffffff", fontSize: 11.5, fontWeight: 700,
+                              cursor: "pointer", boxShadow: "0 1px 4px rgba(22,163,74,0.3)"
+                            }}
                           >
                             Mark Cleared
                           </button>
@@ -375,38 +430,58 @@ export default function PaymentsPage() {
         )}
       </div>
 
-      {/* RECORD PAYMENT MODAL (CONDITIONAL FORM) */}
+      {/* ── RECORD PAYMENT MODAL ── */}
       {showForm && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 16
+          }}
+        >
+          <div
+            style={{
+              background: "#ffffff", borderRadius: 16, maxWidth: 520, width: "100%",
+              padding: 24, boxShadow: "0 20px 50px rgba(0,0,0,0.3)", display: "flex", flexDirection: "column", gap: 14,
+              maxHeight: "90vh", overflowY: "auto"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid #e2e8f0", paddingBottom: 12 }}>
               <div>
-                <h3 className="text-base font-bold text-slate-900">Record Payment Receipt</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Bachan Gas Service (Distributor Code: 0000110351)</p>
+                <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", margin: 0 }}>Record Payment Receipt</h3>
+                <p style={{ fontSize: 12, color: "#64748b", margin: "2px 0 0 0" }}>Bachan Gas Service (Distributor Code: 0000110351)</p>
               </div>
-              <button onClick={() => setShowForm(false)} className="text-slate-400 font-bold hover:text-slate-600">✕</button>
+              <button
+                onClick={() => setShowForm(false)}
+                style={{ background: "none", border: "none", fontSize: 18, color: "#94a3b8", cursor: "pointer", fontWeight: 700 }}
+              >
+                ✕
+              </button>
             </div>
 
             {msg && (
               <div
-                className={`p-3 rounded-lg text-xs font-semibold ${
-                  msg.type === "success"
-                    ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                    : "bg-red-50 text-red-800 border border-red-200"
-                }`}
+                style={{
+                  padding: 12, borderRadius: 8, fontSize: 12.5, fontWeight: 600,
+                  background: msg.type === "success" ? "#f0fdf4" : "#fef2f2",
+                  border: msg.type === "success" ? "1px solid #bbf7d0" : "1px solid #fecaca",
+                  color: msg.type === "success" ? "#166534" : "#991b1b"
+                }}
               >
                 {msg.text}
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {/* Customer Selection */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Select Customer Account *</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 5 }}>
+                  Select Customer Account *
+                </label>
                 <select
                   value={selectedCustId}
                   onChange={(e) => setSelectedCustId(e.target.value)}
-                  className="w-full p-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-orange-500"
+                  style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontSize: 12.5, outline: "none" }}
                 >
                   {customers.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -417,9 +492,11 @@ export default function PaymentsPage() {
               </div>
 
               {/* Amount and Date */}
-              <div className="grid grid-cols-2 gap-3">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Payment Amount (₹) *</label>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 5 }}>
+                    Payment Amount (₹) *
+                  </label>
                   <input
                     type="number"
                     required
@@ -428,36 +505,46 @@ export default function PaymentsPage() {
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="e.g. 25000"
-                    className="w-full p-2 text-xs font-bold border border-slate-300 rounded-lg focus:outline-none focus:border-orange-500"
+                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontSize: 13, fontWeight: 700, outline: "none" }}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Payment Date *</label>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 5 }}>
+                    Payment Date *
+                  </label>
                   <input
                     type="date"
                     required
                     value={payDate}
                     onChange={(e) => setPayDate(e.target.value)}
-                    className="w-full p-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-orange-500"
+                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontSize: 12.5, outline: "none" }}
                   />
                 </div>
               </div>
 
               {/* Payment Method Selector */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Payment Method *</label>
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
+                  Payment Method *
+                </label>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))", gap: 6 }}>
                   {(["Cash", "UPI", "Bank Transfer", "Cheque", "Other"] as PaymentMethod[]).map((m) => (
                     <button
                       key={m}
                       type="button"
                       onClick={() => setMethod(m)}
-                      className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-colors ${
-                        method === m
-                          ? "bg-orange-600 text-white border-orange-600 shadow-sm"
-                          : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                      }`}
+                      style={{
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        border: method === m ? "none" : "1px solid #cbd5e1",
+                        background: method === m ? "#ea580c" : "#f8fafc",
+                        color: method === m ? "#ffffff" : "#475569",
+                        boxShadow: method === m ? "0 2px 6px rgba(234,88,12,0.3)" : "none",
+                      }}
                     >
                       {m}
                     </button>
@@ -465,36 +552,34 @@ export default function PaymentsPage() {
                 </div>
               </div>
 
-              {/* CONDITIONAL FIELDS BASED ON METHOD */}
-              {/* 1. Cash */}
+              {/* Conditional Fields */}
               {method === "Cash" && (
-                <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">
-                  Cash payment received physically at office / godown counter. No electronic UTR required.
+                <div style={{ padding: 12, borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#166534", fontSize: 12 }}>
+                  Cash payment received physically at counter / godown. No electronic UTR required.
                 </div>
               )}
 
-              {/* 2. UPI */}
               {method === "UPI" && (
-                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
-                  <span className="text-[11px] font-bold uppercase text-slate-500">UPI Payment Details</span>
-                  <div className="grid grid-cols-2 gap-3">
+                <div style={{ padding: 14, borderRadius: 10, border: "1px solid #e2e8f0", background: "#f8fafc", display: "flex", flexDirection: "column", gap: 10 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", color: "#ea580c" }}>UPI Payment Details</span>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">UTR / Transaction ID *</label>
+                      <label style={{ display: "block", fontSize: 11.5, fontWeight: 700, color: "#334155", marginBottom: 4 }}>UTR / Transaction ID *</label>
                       <input
                         type="text"
                         required
                         value={upiUtr}
                         onChange={(e) => setUpiUtr(e.target.value)}
                         placeholder="e.g. 412988371902"
-                        className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white"
+                        style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 6, border: "1.5px solid #cbd5e1", fontSize: 12 }}
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">UPI Provider / App</label>
+                      <label style={{ display: "block", fontSize: 11.5, fontWeight: 700, color: "#334155", marginBottom: 4 }}>UPI Provider / App</label>
                       <select
                         value={upiProvider}
                         onChange={(e) => setUpiProvider(e.target.value)}
-                        className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white"
+                        style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 6, border: "1.5px solid #cbd5e1", fontSize: 12 }}
                       >
                         <option value="Google Pay">Google Pay</option>
                         <option value="PhonePe">PhonePe</option>
@@ -507,107 +592,75 @@ export default function PaymentsPage() {
                 </div>
               )}
 
-              {/* 3. Bank Transfer */}
               {method === "Bank Transfer" && (
-                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
-                  <span className="text-[11px] font-bold uppercase text-slate-500">NEFT / RTGS Transfer Details</span>
-                  <div className="grid grid-cols-2 gap-3">
+                <div style={{ padding: 14, borderRadius: 10, border: "1px solid #e2e8f0", background: "#f8fafc", display: "flex", flexDirection: "column", gap: 10 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", color: "#ea580c" }}>NEFT / RTGS Transfer Details</span>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Bank Name *</label>
+                      <label style={{ display: "block", fontSize: 11.5, fontWeight: 700, color: "#334155", marginBottom: 4 }}>Bank Name *</label>
                       <input
                         type="text"
                         required
                         value={bankName}
                         onChange={(e) => setBankName(e.target.value)}
-                        placeholder="e.g. HDFC Bank / ICICI"
-                        className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white"
+                        placeholder="e.g. HDFC Bank"
+                        style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 6, border: "1.5px solid #cbd5e1", fontSize: 12 }}
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">UTR Reference Number *</label>
+                      <label style={{ display: "block", fontSize: 11.5, fontWeight: 700, color: "#334155", marginBottom: 4 }}>UTR Reference Number *</label>
                       <input
                         type="text"
                         required
                         value={bankUtr}
                         onChange={(e) => setBankUtr(e.target.value)}
                         placeholder="e.g. HDFCR520261117"
-                        className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white"
+                        style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 6, border: "1.5px solid #cbd5e1", fontSize: 12 }}
                       />
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* 4. Cheque */}
               {method === "Cheque" && (
-                <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50/50 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold uppercase text-amber-900">Cheque Details (Pending Clearing)</span>
-                    <span className="text-[10px] text-amber-700 font-semibold bg-amber-100 px-2 py-0.5 rounded">
+                <div style={{ padding: 14, borderRadius: 10, border: "1px solid #fed7aa", background: "#fffaf5", display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", color: "#c2410c" }}>Cheque Details (Pending Clearing)</span>
+                    <span style={{ fontSize: 10, color: "#b45309", fontWeight: 700, background: "#fef3c7", padding: "2px 6px", borderRadius: 4 }}>
                       Balance deferred until cleared
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-2.5">
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Cheque Number *</label>
+                      <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#334155", marginBottom: 4 }}>Cheque # *</label>
                       <input
                         type="text"
                         required
                         value={chequeNum}
                         onChange={(e) => setChequeNum(e.target.value)}
-                        placeholder="e.g. 004812"
-                        className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white font-mono"
+                        placeholder="004812"
+                        style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 6, border: "1.5px solid #cbd5e1", fontSize: 12, fontFamily: "monospace" }}
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Cheque Date *</label>
+                      <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#334155", marginBottom: 4 }}>Date *</label>
                       <input
                         type="date"
                         required
                         value={chequeDate}
                         onChange={(e) => setChequeDate(e.target.value)}
-                        className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white"
+                        style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 6, border: "1.5px solid #cbd5e1", fontSize: 12 }}
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Drawee Bank *</label>
+                      <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#334155", marginBottom: 4 }}>Drawee Bank *</label>
                       <input
                         type="text"
                         required
                         value={chequeBank}
                         onChange={(e) => setChequeBank(e.target.value)}
-                        placeholder="e.g. SBI / PNB"
-                        className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 5. Other */}
-              {method === "Other" && (
-                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 space-y-3">
-                  <span className="text-[11px] font-bold uppercase text-slate-500">Other Settlement Method</span>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Description *</label>
-                      <input
-                        type="text"
-                        required
-                        value={otherDesc}
-                        onChange={(e) => setOtherDesc(e.target.value)}
-                        placeholder="e.g. Credit Note Adjustment"
-                        className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Reference Number</label>
-                      <input
-                        type="text"
-                        value={otherRef}
-                        onChange={(e) => setOtherRef(e.target.value)}
-                        placeholder="e.g. CN-0021"
-                        className="w-full p-2 text-xs border border-slate-300 rounded-lg bg-white"
+                        placeholder="SBI / PNB"
+                        style={{ width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 6, border: "1.5px solid #cbd5e1", fontSize: 12 }}
                       />
                     </div>
                   </div>
@@ -616,27 +669,27 @@ export default function PaymentsPage() {
 
               {/* Remarks */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Supporting Remarks / Notes</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>Supporting Remarks / Notes</label>
                 <input
                   type="text"
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
                   placeholder="e.g. Cleared bill for October delivery supply..."
-                  className="w-full p-2 text-xs border border-slate-300 rounded-lg"
+                  style={{ width: "100%", boxSizing: "border-box", padding: "8px 12px", borderRadius: 6, border: "1.5px solid #cbd5e1", fontSize: 12.5 }}
                 />
               </div>
 
-              <div className="pt-2 flex justify-end gap-2 border-t border-slate-100">
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, paddingTop: 10, borderTop: "1px solid #e2e8f0" }}>
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
-                  className="px-3.5 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700"
+                  style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid #cbd5e1", background: "#ffffff", color: "#475569", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-bold shadow-md shadow-orange-600/20"
+                  style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: "#ea580c", color: "#ffffff", fontSize: 12.5, fontWeight: 700, cursor: "pointer", boxShadow: "0 2px 6px rgba(234,88,12,0.3)" }}
                 >
                   Generate Payment Receipt
                 </button>
@@ -646,26 +699,41 @@ export default function PaymentsPage() {
         </div>
       )}
 
-      {/* PRINTABLE PAYMENT RECEIPT MODAL */}
+      {/* ── PRINTABLE PAYMENT RECEIPT MODAL ── */}
       {activeReceiptModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 max-w-xl w-full p-6 shadow-2xl space-y-5">
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 16
+          }}
+        >
+          <div
+            style={{
+              background: "#ffffff", borderRadius: 16, maxWidth: 560, width: "100%",
+              padding: 24, boxShadow: "0 20px 50px rgba(0,0,0,0.3)", display: "flex", flexDirection: "column", gap: 16
+            }}
+          >
             {/* Action Bar */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e2e8f0", paddingBottom: 10 }}>
+              <span style={{ fontSize: 11.5, fontWeight: 800, textTransform: "uppercase", color: "#64748b", letterSpacing: "0.06em" }}>
                 Official Commercial Payment Receipt
               </span>
-              <div className="flex items-center gap-2">
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <button
                   onClick={() => window.print()}
-                  className="px-3 py-1 bg-slate-900 text-white text-xs font-semibold rounded inline-flex items-center gap-1.5"
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "6px 12px", borderRadius: 6, background: "#0f172a",
+                    color: "#ffffff", fontSize: 11.5, fontWeight: 700, border: "none", cursor: "pointer"
+                  }}
                 >
-                  <Printer className="w-3.5 h-3.5" />
+                  <Printer size={14} />
                   Print Receipt
                 </button>
                 <button
                   onClick={() => setActiveReceiptModal(null)}
-                  className="text-slate-400 font-bold hover:text-slate-600 text-sm"
+                  style={{ background: "none", border: "none", fontSize: 18, color: "#94a3b8", cursor: "pointer", fontWeight: 700 }}
                 >
                   ✕
                 </button>
@@ -673,97 +741,90 @@ export default function PaymentsPage() {
             </div>
 
             {/* Printable Receipt Card */}
-            <div className="border border-slate-300 rounded-xl p-6 bg-slate-50/50 space-y-5 text-slate-900 text-xs">
-              {/* Distributor Header */}
-              <div className="text-center pb-4 border-b border-slate-300">
-                <h2 className="text-xl font-black text-slate-950 uppercase tracking-tight">
+            <div style={{ border: "1.5px solid #cbd5e1", borderRadius: 12, padding: 20, background: "#f8fafc", display: "flex", flexDirection: "column", gap: 14 }}>
+              {/* Header */}
+              <div style={{ textAlign: "center", borderBottom: "1.5px solid #cbd5e1", paddingBottom: 12 }}>
+                <h2 style={{ fontSize: 18, fontWeight: 900, color: "#0f172a", textTransform: "uppercase", margin: 0, letterSpacing: "-0.3px" }}>
                   Bachan Gas Service
                 </h2>
-                <p className="text-xs text-orange-600 font-bold mt-0.5">
+                <p style={{ fontSize: 11.5, fontWeight: 700, color: "#ea580c", margin: "2px 0 0 0" }}>
                   Authorized Commercial LPG Distributor · Indian Oil Corporation Limited
                 </p>
-                <div className="mt-1 text-[11px] text-slate-600">
-                  IOCL Distributor Code: <strong className="text-slate-900">0000110351</strong> · Ludhiana, Punjab
+                <div style={{ fontSize: 11, color: "#475569", marginTop: 2 }}>
+                  IOCL Distributor Code: <strong style={{ color: "#0f172a" }}>0000110351</strong> · Ludhiana, Punjab
                 </div>
               </div>
 
-              {/* Receipt Info Grid */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Receipt Info */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <span className="text-slate-500 block text-[10px] uppercase">Receipt Number</span>
-                  <span className="font-mono font-bold text-sm text-slate-900">
+                  <span style={{ fontSize: 10, textTransform: "uppercase", color: "#64748b", fontWeight: 700 }}>Receipt Number</span>
+                  <div style={{ fontSize: 14, fontFamily: "monospace", fontWeight: 900, color: "#0f172a" }}>
                     {activeReceiptModal.receiptNum || activeReceiptModal.num}
-                  </span>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-slate-500 block text-[10px] uppercase">Receipt Date</span>
-                  <span className="font-bold text-slate-900">{activeReceiptModal.date}</span>
+                <div style={{ textAlign: "right" }}>
+                  <span style={{ fontSize: 10, textTransform: "uppercase", color: "#64748b", fontWeight: 700 }}>Receipt Date</span>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a" }}>{activeReceiptModal.date}</div>
                 </div>
               </div>
 
               {/* Customer Box */}
-              <div className="p-3 rounded-lg bg-white border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Received With Thanks From:
-                </span>
-                <div className="text-sm font-bold text-slate-900 mt-1">{activeReceiptModal.customerName}</div>
-                <div className="text-[11px] text-slate-600 mt-0.5">
-                  Consumer ID: <span className="font-mono">{activeReceiptModal.customerCode}</span>
+              <div style={{ background: "#ffffff", padding: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                <span style={{ fontSize: 10, textTransform: "uppercase", color: "#94a3b8", fontWeight: 800 }}>Received With Thanks From:</span>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "#0f172a", marginTop: 2 }}>{activeReceiptModal.customerName}</div>
+                <div style={{ fontSize: 11, color: "#64748b", marginTop: 1 }}>
+                  Consumer ID: <span style={{ fontFamily: "monospace" }}>{activeReceiptModal.customerCode}</span>
                 </div>
               </div>
 
               {/* Amount and Method */}
-              <div className="grid grid-cols-2 gap-4 p-3 rounded-lg bg-white border border-slate-200">
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, background: "#ffffff", padding: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Amount Received
-                  </span>
-                  <div className="text-lg font-black text-emerald-700 mt-0.5">
+                  <span style={{ fontSize: 10, textTransform: "uppercase", color: "#94a3b8", fontWeight: 800 }}>Amount Received</span>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: "#16a34a", marginTop: 2 }}>
                     ₹{activeReceiptModal.amount.toLocaleString("en-IN")}
                   </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Payment Mode
-                  </span>
-                  <div className="font-bold text-slate-900 mt-0.5">{activeReceiptModal.method}</div>
-                  <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                <div style={{ textAlign: "right" }}>
+                  <span style={{ fontSize: 10, textTransform: "uppercase", color: "#94a3b8", fontWeight: 800 }}>Payment Mode</span>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", marginTop: 2 }}>{activeReceiptModal.method}</div>
+                  <div style={{ fontSize: 10.5, fontFamily: "monospace", color: "#64748b", marginTop: 1 }}>
                     {activeReceiptModal.ref || "Direct Settlement"}
                   </div>
                 </div>
               </div>
 
-              {/* Cheque Info if applicable */}
+              {/* Cheque Details if applicable */}
               {activeReceiptModal.chequeDetails && (
-                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-900">
-                  <div>
-                    Cheque Number: <strong>#{activeReceiptModal.chequeDetails.chequeNum}</strong> · Date: {activeReceiptModal.chequeDetails.chequeDate}
-                  </div>
+                <div style={{ background: "#fffbeb", padding: 10, borderRadius: 8, border: "1px solid #fed7aa", fontSize: 11, color: "#92400e" }}>
+                  <div>Cheque #: <strong>{activeReceiptModal.chequeDetails.chequeNum}</strong> · Date: {activeReceiptModal.chequeDetails.chequeDate}</div>
                   <div>Drawee Bank: {activeReceiptModal.chequeDetails.bankName}</div>
-                  <div className="font-semibold text-amber-800 mt-1">
-                    Status: {activeReceiptModal.chequeDetails.status.toUpperCase()}
-                  </div>
+                  <div style={{ fontWeight: 800, marginTop: 2 }}>Status: {activeReceiptModal.chequeDetails.status.toUpperCase()}</div>
                 </div>
               )}
 
               {/* Footer Signatures */}
-              <div className="pt-6 border-t border-slate-300 flex items-end justify-between text-[11px]">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", paddingTop: 14, borderTop: "1px solid #cbd5e1", fontSize: 11 }}>
                 <div>
-                  <span className="text-slate-500 block">Received By:</span>
-                  <span className="font-semibold text-slate-900">{activeReceiptModal.receivedBy}</span>
+                  <span style={{ color: "#64748b", display: "block" }}>Received By:</span>
+                  <strong style={{ color: "#0f172a" }}>{activeReceiptModal.receivedBy}</strong>
                 </div>
-                <div className="text-right">
-                  <div className="h-8 border-b border-dashed border-slate-400 w-36 mb-1"></div>
-                  <span className="text-[10px] text-slate-500 block">Authorized Signature & Stamp</span>
-                  <span className="font-semibold text-[10px] text-slate-800">For Bachan Gas Service</span>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ height: 28, borderBottom: "1px dashed #94a3b8", width: 140, marginBottom: 4 }} />
+                  <span style={{ fontSize: 10, color: "#64748b", display: "block" }}>Authorized Signature & Stamp</span>
+                  <strong style={{ fontSize: 10.5, color: "#0f172a" }}>For Bachan Gas Service</strong>
                 </div>
               </div>
             </div>
 
-            <div className="text-right">
+            <div style={{ textAlign: "right" }}>
               <button
                 onClick={() => setActiveReceiptModal(null)}
-                className="px-4 py-1.5 border border-slate-300 text-xs font-semibold rounded-lg hover:bg-slate-50"
+                style={{
+                  padding: "8px 18px", borderRadius: 8, border: "1.5px solid #cbd5e1",
+                  background: "#ffffff", color: "#334155", fontSize: 12, fontWeight: 700, cursor: "pointer"
+                }}
               >
                 Close Receipt
               </button>

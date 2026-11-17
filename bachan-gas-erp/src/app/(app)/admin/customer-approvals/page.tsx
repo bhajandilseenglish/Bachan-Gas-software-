@@ -8,6 +8,14 @@ import {
   ArrowRight, Search, FileText, UserCheck, ShieldAlert
 } from "lucide-react";
 
+const cardStyle = (s?: React.CSSProperties): React.CSSProperties => ({
+  background: "#ffffff",
+  border: "1px solid #e2e8f0",
+  borderRadius: 14,
+  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+  ...s,
+});
+
 export default function CustomerApprovalsPage() {
   const {
     customerApprovals,
@@ -29,19 +37,23 @@ export default function CustomerApprovalsPage() {
 
   if (currentUserRole !== "admin") {
     return (
-      <div className="max-w-xl mx-auto mt-16 p-8 bg-white border border-slate-200 rounded-2xl shadow-sm text-center">
-        <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-4">
-          <ShieldAlert className="w-6 h-6" />
+      <div style={{ maxWidth: 520, margin: "60px auto", padding: 32, ...cardStyle(), textAlign: "center" }}>
+        <div style={{ width: 48, height: 48, borderRadius: 12, background: "#fee2e2", color: "#dc2626", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px auto" }}>
+          <ShieldAlert size={26} />
         </div>
-        <h1 className="text-xl font-bold text-slate-900">Admin Authorization Required</h1>
-        <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+        <h1 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", margin: 0 }}>Admin Authorization Required</h1>
+        <p style={{ fontSize: 13, color: "#64748b", marginTop: 8, lineHeight: 1.5 }}>
           The Customer Approvals queue is strictly reserved for Administrators.
           Operations staff accounts are not authorized to approve customer onboarding requests.
         </p>
-        <div className="mt-6">
+        <div style={{ marginTop: 20 }}>
           <Link
             href="/dashboard"
-            className="px-4 py-2 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors inline-flex items-center gap-1.5"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "9px 18px", borderRadius: 8, background: "#0f172a",
+              color: "#ffffff", fontSize: 12.5, fontWeight: 700, textDecoration: "none"
+            }}
           >
             Return to Dashboard
           </Link>
@@ -95,242 +107,284 @@ export default function CustomerApprovalsPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-4">
+    <div style={{ maxWidth: 1280, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
+      {/* ── HEADER ── */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, borderBottom: "1px solid #e2e8f0", paddingBottom: 14 }}>
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Customer Approvals Queue</h1>
-            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <h1 style={{ fontSize: 24, fontWeight: 900, color: "#0f172a", margin: 0, letterSpacing: "-0.4px" }}>
+              Customer Approvals Queue
+            </h1>
+            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6, background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a" }}>
               Admin Exclusive
             </span>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
+          <p style={{ margin: "4px 0 0 0", color: "#64748b", fontSize: 13 }}>
             Review and govern commercial customer registration requests submitted by operations staff.
           </p>
         </div>
+
         <Link
           href="/customers/new"
-          className="px-4 py-2 rounded-lg bg-orange-600 text-white text-xs font-semibold hover:bg-orange-500 transition-colors inline-flex items-center gap-1.5 shadow-sm self-start sm:self-auto"
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "9px 16px", borderRadius: 8,
+            background: "#ea580c", color: "#ffffff", fontSize: 12.5, fontWeight: 700,
+            textDecoration: "none", boxShadow: "0 2px 6px rgba(234,88,12,0.3)"
+          }}
         >
           Customer Onboarding Portal
         </Link>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      {/* ── STATS METRIC CARDS ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
         <div
           onClick={() => setFilterStatus("pending_approval")}
-          className={`p-4 rounded-xl border cursor-pointer transition-all ${
-            filterStatus === "pending_approval"
-              ? "bg-amber-500 text-white border-amber-600 shadow-md shadow-amber-500/20"
-              : "bg-white border-slate-200 text-slate-900 hover:border-amber-300"
-          }`}
+          style={{
+            ...cardStyle(),
+            padding: 16,
+            borderLeft: "4px solid #f59e0b",
+            cursor: "pointer",
+            background: filterStatus === "pending_approval" ? "#fffbeb" : "#ffffff",
+            transition: "all .15s ease",
+          }}
         >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold opacity-90">Pending Approval</span>
-            <Clock className="w-4 h-4 opacity-75" />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: "uppercase", color: "#92400e" }}>Pending Approval</span>
+            <Clock size={16} color="#d97706" />
           </div>
-          <div className="text-2xl font-extrabold mt-2">{pendingList.length}</div>
-          <span className="text-[11px] opacity-75">Awaiting verification</span>
+          <div style={{ fontSize: 24, fontWeight: 900, color: "#0f172a", marginTop: 8 }}>{pendingList.length}</div>
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>Awaiting verification</div>
         </div>
 
         <div
           onClick={() => setFilterStatus("approved")}
-          className={`p-4 rounded-xl border cursor-pointer transition-all ${
-            filterStatus === "approved"
-              ? "bg-emerald-600 text-white border-emerald-700 shadow-md shadow-emerald-600/20"
-              : "bg-white border-slate-200 text-slate-900 hover:border-emerald-300"
-          }`}
+          style={{
+            ...cardStyle(),
+            padding: 16,
+            borderLeft: "4px solid #16a34a",
+            cursor: "pointer",
+            background: filterStatus === "approved" ? "#f0fdf4" : "#ffffff",
+            transition: "all .15s ease",
+          }}
         >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold opacity-90">Approved</span>
-            <CheckCircle2 className="w-4 h-4 opacity-75" />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: "uppercase", color: "#166534" }}>Approved</span>
+            <CheckCircle2 size={16} color="#16a34a" />
           </div>
-          <div className="text-2xl font-extrabold mt-2">{approvedList.length}</div>
-          <span className="text-[11px] opacity-75">Active customer accounts</span>
+          <div style={{ fontSize: 24, fontWeight: 900, color: "#0f172a", marginTop: 8 }}>{approvedList.length}</div>
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>Active customer accounts</div>
         </div>
 
         <div
           onClick={() => setFilterStatus("correction_requested")}
-          className={`p-4 rounded-xl border cursor-pointer transition-all ${
-            filterStatus === "correction_requested"
-              ? "bg-blue-600 text-white border-blue-700 shadow-md shadow-blue-600/20"
-              : "bg-white border-slate-200 text-slate-900 hover:border-blue-300"
-          }`}
+          style={{
+            ...cardStyle(),
+            padding: 16,
+            borderLeft: "4px solid #0284c7",
+            cursor: "pointer",
+            background: filterStatus === "correction_requested" ? "#f0f9ff" : "#ffffff",
+            transition: "all .15s ease",
+          }}
         >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold opacity-90">Correction Needed</span>
-            <AlertTriangle className="w-4 h-4 opacity-75" />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: "uppercase", color: "#0369a1" }}>Correction Needed</span>
+            <AlertTriangle size={16} color="#0284c7" />
           </div>
-          <div className="text-2xl font-extrabold mt-2">{correctionList.length}</div>
-          <span className="text-[11px] opacity-75">Sent back to staff</span>
+          <div style={{ fontSize: 24, fontWeight: 900, color: "#0f172a", marginTop: 8 }}>{correctionList.length}</div>
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>Sent back to staff</div>
         </div>
 
         <div
           onClick={() => setFilterStatus("rejected")}
-          className={`p-4 rounded-xl border cursor-pointer transition-all ${
-            filterStatus === "rejected"
-              ? "bg-red-600 text-white border-red-700 shadow-md shadow-red-600/20"
-              : "bg-white border-slate-200 text-slate-900 hover:border-red-300"
-          }`}
+          style={{
+            ...cardStyle(),
+            padding: 16,
+            borderLeft: "4px solid #dc2626",
+            cursor: "pointer",
+            background: filterStatus === "rejected" ? "#fef2f2" : "#ffffff",
+            transition: "all .15s ease",
+          }}
         >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold opacity-90">Rejected</span>
-            <XCircle className="w-4 h-4 opacity-75" />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: "uppercase", color: "#991b1b" }}>Rejected</span>
+            <XCircle size={16} color="#dc2626" />
           </div>
-          <div className="text-2xl font-extrabold mt-2">{rejectedList.length}</div>
-          <span className="text-[11px] opacity-75">Declined registrations</span>
+          <div style={{ fontSize: 24, fontWeight: 900, color: "#0f172a", marginTop: 8 }}>{rejectedList.length}</div>
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>Declined registrations</div>
         </div>
       </div>
 
-      {/* Filter and Search */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
-        <div className="relative w-full sm:w-80">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-            <Search className="w-4 h-4" />
+      {/* ── SEARCH & FILTER TABS ── */}
+      <div style={{ ...cardStyle(), padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+        <div style={{ position: "relative", minWidth: 260, flex: 1, maxWidth: 360 }}>
+          <div style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8", display: "flex", alignItems: "center" }}>
+            <Search size={15} />
           </div>
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search request #, customer, mobile, submitter..."
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-orange-500"
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "8px 12px 8px 36px",
+              borderRadius: 8,
+              border: "1.5px solid #cbd5e1",
+              fontSize: 12.5,
+              background: "#f8fafc",
+              color: "#0f172a",
+              outline: "none",
+            }}
           />
         </div>
 
-        <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {(["all", "pending_approval", "approved", "correction_requested", "rejected"] as const).map((st) => (
             <button
               key={st}
               onClick={() => setFilterStatus(st)}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap ${
-                filterStatus === st
-                  ? "bg-slate-900 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 8,
+                border: "none",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                background: filterStatus === st ? "#0f172a" : "#f1f5f9",
+                color: filterStatus === st ? "#ffffff" : "#475569",
+                transition: "all .12s ease",
+              }}
             >
               {st === "all"
                 ? "All Requests"
                 : st === "pending_approval"
-                ? "Pending"
+                ? `Pending (${pendingList.length})`
                 : st === "correction_requested"
-                ? "Correction"
-                : st.charAt(0).toUpperCase() + st.slice(1)}
+                ? `Correction (${correctionList.length})`
+                : st === "approved"
+                ? `Approved (${approvedList.length})`
+                : `Rejected (${rejectedList.length})`}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Approvals Table */}
-      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+      {/* ── APPROVALS TABLE ── */}
+      <div style={{ ...cardStyle(), overflow: "hidden" }}>
         {filteredApprovals.length === 0 ? (
-          <div className="p-12 text-center">
-            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
-              <CheckCircle2 className="w-6 h-6" />
+          <div style={{ padding: "48px 24px", textAlign: "center" }}>
+            <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px auto", color: "#94a3b8" }}>
+              <CheckCircle2 size={22} />
             </div>
-            <h3 className="text-sm font-bold text-slate-900">No requests found</h3>
-            <p className="text-xs text-slate-500 mt-1">
-              There are currently no customer registration requests matching this view.
+            <h3 style={{ fontSize: 14, fontWeight: 800, color: "#0f172a", margin: 0 }}>No requests found</h3>
+            <p style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+              There are currently no customer registration requests matching this filter view.
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-                <tr>
-                  <th className="py-3 px-4">Request #</th>
-                  <th className="py-3 px-4">Customer Details</th>
-                  <th className="py-3 px-4">Contact</th>
-                  <th className="py-3 px-4">Proposed Terms</th>
-                  <th className="py-3 px-4">Submitted By</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Admin Actions</th>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, textAlign: "left" }}>
+              <thead>
+                <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0", color: "#475569" }}>
+                  <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Request #</th>
+                  <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Customer Details</th>
+                  <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Contact</th>
+                  <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Proposed Terms</th>
+                  <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Submitted By</th>
+                  <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Status</th>
+                  <th style={{ padding: "12px 16px", fontWeight: 700, fontSize: 11, textTransform: "uppercase", textAlign: "right" }}>Admin Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {filteredApprovals.map((req) => {
                   const cust = req.customerData;
                   const matchingCustomer = customers.find(c => c.id === req.customerId);
 
                   return (
-                    <tr key={req.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-800">
+                    <tr key={req.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={{ padding: "14px 16px", fontWeight: 700, fontFamily: "monospace", color: "#0f172a" }}>
                         {req.requestNum}
-                        <span className="block text-[10px] text-slate-400 font-sans font-normal mt-0.5">
+                        <span style={{ display: "block", fontSize: 10.5, color: "#94a3b8", fontFamily: "sans-serif", fontWeight: 500, marginTop: 2 }}>
                           {req.submittedAt}
                         </span>
                       </td>
 
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-900 text-sm">{cust.name}</div>
-                        <div className="text-[11px] text-slate-500">
-                          {cust.business} · <span className="font-mono">{cust.code}</span>
+                      <td style={{ padding: "14px 16px" }}>
+                        <div style={{ fontWeight: 800, color: "#0f172a", fontSize: 13.5 }}>{cust.name}</div>
+                        <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 2 }}>
+                          {cust.business} · <span style={{ fontFamily: "monospace" }}>{cust.code}</span>
                           {cust.sap_code && ` · SAP: ${cust.sap_code}`}
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4">
-                        <div className="font-medium text-slate-900">{cust.mobile}</div>
-                        <div className="text-[11px] text-slate-500">{cust.contact_person || cust.city || "Ludhiana"}</div>
+                      <td style={{ padding: "14px 16px" }}>
+                        <div style={{ fontWeight: 700, color: "#0f172a" }}>{cust.mobile}</div>
+                        <div style={{ fontSize: 11.5, color: "#64748b" }}>{cust.contact_person || cust.city || "Ludhiana"}</div>
                       </td>
 
-                      <td className="py-3.5 px-4">
-                        <div className="font-semibold text-slate-800">
+                      <td style={{ padding: "14px 16px" }}>
+                        <div style={{ fontWeight: 700, color: "#0f172a" }}>
                           Limit: {cust.credit_limit !== null && cust.credit_limit !== undefined ? `₹${cust.credit_limit.toLocaleString("en-IN")}` : "None"}
                         </div>
-                        <div className="text-[11px] text-slate-500">
+                        <div style={{ fontSize: 11.5, color: "#64748b" }}>
                           Tenure: {cust.payment_tenure_days || 15} Days
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4">
-                        <div className="font-medium text-slate-800">{req.submittedBy}</div>
-                        <div className="text-[11px] text-slate-400">Staff Member</div>
+                      <td style={{ padding: "14px 16px" }}>
+                        <div style={{ fontWeight: 700, color: "#0f172a" }}>{req.submittedBy}</div>
+                        <div style={{ fontSize: 11, color: "#94a3b8" }}>Staff Member</div>
                       </td>
 
-                      <td className="py-3.5 px-4">
+                      <td style={{ padding: "14px 16px" }}>
                         {req.status === "pending_approval" && (
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                          <span style={{ padding: "3px 8px", borderRadius: 6, fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a" }}>
                             Pending
                           </span>
                         )}
                         {req.status === "approved" && (
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span style={{ padding: "3px 8px", borderRadius: 6, fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", background: "#dcfce7", color: "#15803d", border: "1px solid #bbf7d0" }}>
                             Approved
                           </span>
                         )}
                         {req.status === "rejected" && (
                           <div>
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-50 text-red-700 border border-red-200">
+                            <span style={{ padding: "3px 8px", borderRadius: 6, fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", background: "#fee2e2", color: "#991b1b", border: "1px solid #fecaca" }}>
                               Rejected
                             </span>
                             {req.rejectionReason && (
-                              <p className="text-[10px] text-red-600 mt-1 max-w-xs">{req.rejectionReason}</p>
+                              <p style={{ margin: "4px 0 0 0", fontSize: 11, color: "#dc2626", maxWidth: 220 }}>{req.rejectionReason}</p>
                             )}
                           </div>
                         )}
                         {req.status === "correction_requested" && (
                           <div>
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200">
+                            <span style={{ padding: "3px 8px", borderRadius: 6, fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", background: "#e0f2fe", color: "#0369a1", border: "1px solid #bae6fd" }}>
                               Correction
                             </span>
                             {req.correctionNotes && (
-                              <p className="text-[10px] text-blue-600 mt-1 max-w-xs">{req.correctionNotes}</p>
+                              <p style={{ margin: "4px 0 0 0", fontSize: 11, color: "#0284c7", maxWidth: 220 }}>{req.correctionNotes}</p>
                             )}
                           </div>
                         )}
                       </td>
 
-                      <td className="py-3.5 px-4 text-right">
+                      <td style={{ padding: "14px 16px", textAlign: "right" }}>
                         {req.status === "pending_approval" ? (
-                          <div className="flex items-center justify-end gap-1.5">
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
                             <button
                               onClick={() => {
                                 setSelectedReq(req);
                                 setActionType("approve");
                               }}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-bold transition-colors shadow-sm"
+                              style={{
+                                padding: "6px 12px", borderRadius: 6, border: "none",
+                                background: "#16a34a", color: "#ffffff", fontSize: 11.5, fontWeight: 700,
+                                cursor: "pointer", boxShadow: "0 1px 4px rgba(22,163,74,0.3)"
+                              }}
                             >
                               Approve
                             </button>
@@ -340,7 +394,11 @@ export default function CustomerApprovalsPage() {
                                 setActionType("correction");
                                 setActionReason("");
                               }}
-                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[11px] font-bold transition-colors"
+                              style={{
+                                padding: "6px 12px", borderRadius: 6,
+                                background: "#f0f9ff", border: "1px solid #bae6fd",
+                                color: "#0369a1", fontSize: 11.5, fontWeight: 700, cursor: "pointer"
+                              }}
                             >
                               Correction
                             </button>
@@ -350,20 +408,27 @@ export default function CustomerApprovalsPage() {
                                 setActionType("reject");
                                 setActionReason("");
                               }}
-                              className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded text-[11px] font-bold transition-colors"
+                              style={{
+                                padding: "6px 12px", borderRadius: 6,
+                                background: "#fef2f2", border: "1px solid #fecaca",
+                                color: "#991b1b", fontSize: 11.5, fontWeight: 700, cursor: "pointer"
+                              }}
                             >
                               Reject
                             </button>
                           </div>
                         ) : (
-                          <div className="flex items-center justify-end gap-2">
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
                             {matchingCustomer && (
                               <Link
                                 href={`/customers/${matchingCustomer.id}`}
-                                className="text-xs font-semibold text-orange-600 hover:text-orange-700 inline-flex items-center gap-1"
+                                style={{
+                                  display: "inline-flex", alignItems: "center", gap: 4,
+                                  fontSize: 12, fontWeight: 700, color: "#ea580c", textDecoration: "none"
+                                }}
                               >
                                 View Profile
-                                <ArrowRight className="w-3.5 h-3.5" />
+                                <ArrowRight size={14} />
                               </Link>
                             )}
                           </div>
@@ -378,20 +443,31 @@ export default function CustomerApprovalsPage() {
         )}
       </div>
 
-      {/* Confirmation / Reason Modal */}
+      {/* ── CONFIRMATION / ACTION MODAL ── */}
       {selectedReq && actionType && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between">
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 16
+          }}
+        >
+          <div
+            style={{
+              background: "#ffffff", borderRadius: 16, maxWidth: 480, width: "100%",
+              padding: 24, boxShadow: "0 20px 50px rgba(0,0,0,0.3)", display: "flex", flexDirection: "column", gap: 14
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid #e2e8f0", paddingBottom: 12 }}>
               <div>
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", margin: 0 }}>
                   {actionType === "approve"
                     ? "Approve Customer Registration"
                     : actionType === "reject"
                     ? "Reject Customer Registration"
                     : "Request Registration Correction"}
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p style={{ fontSize: 12, color: "#64748b", margin: "2px 0 0 0" }}>
                   Customer: <strong>{selectedReq.customerData.name}</strong> ({selectedReq.customerData.code})
                 </p>
               </div>
@@ -400,22 +476,22 @@ export default function CustomerApprovalsPage() {
                   setSelectedReq(null);
                   setActionType(null);
                 }}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold"
+                style={{ background: "none", border: "none", fontSize: 18, color: "#94a3b8", cursor: "pointer", fontWeight: 700 }}
               >
                 ✕
               </button>
             </div>
 
             {actionType === "approve" && (
-              <p className="text-xs text-slate-600 leading-relaxed bg-emerald-50 p-3 rounded-lg border border-emerald-200">
-                Approving this registration will activate customer account <strong>{selectedReq.customerData.name}</strong>.
-                The customer will immediately be available for commercial LPG orders, deliveries, and payment receipts.
+              <p style={{ margin: 0, padding: 12, borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#166534", fontSize: 12.5, lineHeight: 1.5 }}>
+                Approving this registration will immediately activate customer account <strong>{selectedReq.customerData.name}</strong>.
+                The customer will be available across orders, deliveries, and payment receipts.
               </p>
             )}
 
             {(actionType === "reject" || actionType === "correction") && (
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
                   {actionType === "reject" ? "Reason for Rejection *" : "Notes on Required Corrections *"}
                 </label>
                 <textarea
@@ -426,34 +502,40 @@ export default function CustomerApprovalsPage() {
                   placeholder={
                     actionType === "reject"
                       ? "e.g. Duplicate commercial account or unverifiable address..."
-                      : "e.g. Please verify GSTIN number or update complete manifold delivery address..."
+                      : "e.g. Please verify GSTIN number or update complete delivery address..."
                   }
-                  className="w-full p-3 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
+                  style={{
+                    width: "100%", boxSizing: "border-box", padding: "10px 12px",
+                    borderRadius: 8, border: "1.5px solid #cbd5e1", fontSize: 12.5,
+                    color: "#0f172a", outline: "none", resize: "vertical"
+                  }}
                 />
               </div>
             )}
 
-            <div className="pt-2 flex items-center justify-end gap-2">
+            <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, paddingTop: 10, borderTop: "1px solid #e2e8f0" }}>
               <button
                 type="button"
                 onClick={() => {
                   setSelectedReq(null);
                   setActionType(null);
                 }}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                style={{
+                  padding: "8px 16px", borderRadius: 8, border: "1.5px solid #cbd5e1",
+                  background: "#ffffff", color: "#475569", fontSize: 12, fontWeight: 700, cursor: "pointer"
+                }}
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleConfirmAction}
-                className={`px-4 py-2 text-white text-xs font-bold rounded-lg transition-colors ${
-                  actionType === "approve"
-                    ? "bg-emerald-600 hover:bg-emerald-500"
-                    : actionType === "reject"
-                    ? "bg-red-600 hover:bg-red-500"
-                    : "bg-blue-600 hover:bg-blue-500"
-                }`}
+                style={{
+                  padding: "8px 18px", borderRadius: 8, border: "none",
+                  background: actionType === "approve" ? "#16a34a" : actionType === "reject" ? "#dc2626" : "#0284c7",
+                  color: "#ffffff", fontSize: 12, fontWeight: 700, cursor: "pointer",
+                  boxShadow: "0 2px 6px rgba(0,0,0,0.15)"
+                }}
               >
                 {actionType === "approve"
                   ? "Confirm Approval"
