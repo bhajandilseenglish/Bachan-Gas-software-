@@ -154,6 +154,14 @@ const custsSrc = fs.readFileSync(customersPagePath, "utf8");
 assert(custsSrc.includes("Needs Admin Review"), "Customer register includes 'Needs Admin Review' segment");
 assert(custsSrc.includes("Review Needed"), "Displays 'Review Needed' badge on unverified records");
 
+// TEST 12: Cylinder Tracking & Return Ledger Report Route
+console.log("\nTEST SUITE 12: Cylinder Tracking & Return Ledger Report Route");
+const cylinderReportPath = path.join(__dirname, "../src/app/(app)/reports/cylinders/page.tsx");
+assert(fs.existsSync(cylinderReportPath), "Report route /reports/cylinders exists");
+const cylReportSrc = fs.readFileSync(cylinderReportPath, "utf8");
+assert(cylReportSrc.includes("Cylinder Tracking"), "Report title and components exist");
+assert(cylReportSrc.includes("recordEmptyReturn"), "Provides direct empty return recording action");
+
 console.log("\n======================================================================");
 console.log(`TOTAL TESTS: ${totalTests} | PASSED: ${passedTests} | FAILED: ${totalTests - passedTests}`);
 if (passedTests === totalTests) {

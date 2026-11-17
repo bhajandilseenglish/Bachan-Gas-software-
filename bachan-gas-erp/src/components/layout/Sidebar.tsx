@@ -108,6 +108,7 @@ export default function Sidebar({ collapsed, mobileOpen, onClose }: Props) {
       children: [
         { label: "Sales & Revenue", href: "/reports/sales", Icon: TrendingUp },
         { label: "Delivery Operations", href: "/reports/deliveries", Icon: Truck },
+        { label: "Cylinder Ledger", href: "/reports/cylinders", Icon: RotateCcw },
         { label: "Financial Audit", href: "/reports/financial", Icon: PieChart },
         { label: "Inactivity & Retention", href: "/reports/inactivity", Icon: AlertTriangle },
       ],
