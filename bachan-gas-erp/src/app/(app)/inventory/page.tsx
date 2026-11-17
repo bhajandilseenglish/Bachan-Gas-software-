@@ -2,12 +2,20 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useERPStore, WarehouseStockItem, StockMovement, EXACT_SIX_ACTIVE_PRODUCTS } from "@/lib/store";
 import {
   Package, Truck, ArrowDownLeft, ArrowUpRight, RotateCcw,
   Sliders, History, Plus, CheckCircle2, AlertTriangle, ShieldCheck,
-  Search, ShieldAlert, FileText, Check, Clock
+  Search, ShieldAlert, FileText, Check, Clock, X, ChevronRight, Layers, Flame
 } from "lucide-react";
+import { useERPStore, WarehouseStockItem, StockMovement, EXACT_SIX_ACTIVE_PRODUCTS } from "@/lib/store";
+
+const card = (s?: React.CSSProperties): React.CSSProperties => ({
+  background: "#ffffff",
+  border: "1px solid #e2e8f0",
+  borderRadius: 14,
+  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+  ...s,
+});
 
 export default function InventoryPage() {
   const {
@@ -20,8 +28,6 @@ export default function InventoryPage() {
     recordStockAdjustment,
     approveStockAdjustment,
     configureOpeningStock,
-    deliveries,
-    cylinderExchangeLedger,
   } = useERPStore();
 
   const isAdmin = currentUserRole === "admin";
@@ -35,7 +41,6 @@ export default function InventoryPage() {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
   const [showOpeningModal, setShowOpeningModal] = useState(false);
-  const [selectedProductId, setSelectedProductId] = useState(activeProducts[0]?.id || "");
 
   // Receipt form state
   const [receiptForm, setReceiptForm] = useState({
@@ -108,7 +113,7 @@ export default function InventoryPage() {
       return;
     }
 
-    const mov = recordStockAdjustment({
+    recordStockAdjustment({
       date: new Date().toISOString().split("T")[0],
       productId: adjForm.productId,
       qty: qtyNum,
@@ -158,65 +163,175 @@ export default function InventoryPage() {
   const adjustmentMovements = stockMovements.filter(m => m.type === "adjustment");
   const returnMovements = stockMovements.filter(m => m.type === "cylinder_return");
 
+  // Aggregate metrics
+  let totalFilledCylinders = 0;
+  let totalEmptyCylinders = 0;
+  let totalGasWeightKg = 0;
+  let configuredCount = 0;
+
+  warehouseStock.forEach((item) => {
+    if (item.filledOpeningStock !== null) {
+      configuredCount++;
+      const f = Math.max(0, (item.filledOpeningStock || 0) + item.filledStockReceived - item.filledStockIssued);
+      const e = Math.max(0, (item.emptyOpeningStock || 0) + item.emptyStockReceived - item.emptyStockIssued);
+      totalFilledCylinders += f;
+      totalEmptyCylinders += e;
+      totalGasWeightKg += f * item.referenceWeightKg;
+    } else {
+      const f = item.filledStockReceived - item.filledStockIssued;
+      const e = item.emptyStockReceived - item.emptyStockIssued;
+      if (f > 0) totalFilledCylinders += f;
+      if (e > 0) totalEmptyCylinders += e;
+      if (f > 0) totalGasWeightKg += f * item.referenceWeightKg;
+    }
+  });
+
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 pb-4">
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 1600, margin: "0 auto" }}>
+      {/* ── TOP HEADER & ACTIONS ── */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 14 }}>
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Warehouse Inventory Management</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-800 border border-orange-200">
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <h1 className="page-title" style={{ margin: 0, fontSize: 24, fontWeight: 900, color: "#0f172a" }}>
+              Warehouse Inventory Management
+            </h1>
+            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6, background: "#ffedd5", color: "#c2410c", border: "1px solid #fed7aa" }}>
               Main Godown · Ludhiana
             </span>
+            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6, background: "#e0f2fe", color: "#0369a1", border: "1px solid #bae6fd" }}>
+              Distributor Code: 0000110351
+            </span>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
-            Physical stock management for 6 approved commercial LPG products · Receipts, issues, cylinder returns, and adjustments
+          <p className="page-sub" style={{ marginTop: 4, color: "#64748b", fontSize: 13 }}>
+            Physical stock management for 6 approved commercial LPG products · Live Godown inventory, receipts, dispatches, returns & audit adjustments
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <button
             onClick={() => setShowReceiptModal(true)}
-            className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm inline-flex items-center gap-1.5 transition-colors"
+            style={{
+              padding: "9px 16px", borderRadius: 8, border: "none",
+              background: "#16a34a", color: "#ffffff", fontSize: 13, fontWeight: 700,
+              cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7,
+              boxShadow: "0 2px 6px rgba(22,163,74,0.3)", transition: "all .15s"
+            }}
           >
-            <ArrowDownLeft className="w-4 h-4" />
-            Record Stock Receipt
+            <ArrowDownLeft size={16} /> Record Stock Receipt
           </button>
 
           <button
             onClick={() => setShowAdjustmentModal(true)}
-            className="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors"
+            style={{
+              padding: "9px 16px", borderRadius: 8, border: "none",
+              background: "#0f172a", color: "#ffffff", fontSize: 13, fontWeight: 700,
+              cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7,
+              boxShadow: "0 2px 6px rgba(15,23,42,0.25)", transition: "all .15s"
+            }}
           >
-            <Sliders className="w-4 h-4" />
-            Stock Adjustment
+            <Sliders size={16} /> Stock Adjustment
           </button>
 
           {isAdmin && (
             <button
               onClick={() => setShowOpeningModal(true)}
-              className="px-3.5 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors"
+              style={{
+                padding: "8px 14px", borderRadius: 8, border: "1.5px solid #fed7aa",
+                background: "#fff", color: "#ea580c", fontSize: 12.5, fontWeight: 700,
+                cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
+                transition: "all .15s"
+              }}
             >
-              <ShieldCheck className="w-4 h-4 text-orange-600" />
-              Configure Opening Stock
+              <ShieldCheck size={16} color="#ea580c" /> Configure Opening Stock
             </button>
           )}
         </div>
       </div>
 
+      {/* ── NOTIFICATION BANNER ── */}
       {notification && (
-        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+        <div style={{
+          padding: "12px 16px", borderRadius: 10, background: "#f0fdf4",
+          border: "1px solid #bbf7d0", color: "#166534", fontSize: 13, fontWeight: 600,
+          display: "flex", alignItems: "center", justifyContent: "space-between"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <CheckCircle2 size={16} color="#16a34a" />
             <span>{notification.text}</span>
           </div>
-          <button onClick={() => setNotification(null)} className="text-emerald-600 hover:text-emerald-800 font-bold">
-            ✕
-          </button>
+          <button onClick={() => setNotification(null)} style={{ background: "none", border: "none", color: "#166534", fontWeight: 800, cursor: "pointer" }}>✕</button>
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex border-b border-slate-200 overflow-x-auto">
+      {/* ── KPI METRIC CARDS ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+        <div style={{ ...card(), padding: 18, borderLeft: "4px solid #16a34a" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+            <span>Filled Cylinders in Godown</span>
+            <div style={{ width: 28, height: 28, borderRadius: 6, background: "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Package size={15} color="#16a34a" />
+            </div>
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: "#0f172a", marginTop: 8 }}>
+            {totalFilledCylinders.toLocaleString("en-IN")} <span style={{ fontSize: 13, fontWeight: 600, color: "#64748b" }}>units</span>
+          </div>
+          <div style={{ fontSize: 11, color: "#16a34a", fontWeight: 600, marginTop: 4 }}>
+            Ready for customer dispatch
+          </div>
+        </div>
+
+        <div style={{ ...card(), padding: 18, borderLeft: "4px solid #0284c7" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+            <span>Empty Cylinders in Godown</span>
+            <div style={{ width: 28, height: 28, borderRadius: 6, background: "#e0f2fe", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <RotateCcw size={15} color="#0284c7" />
+            </div>
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: "#0f172a", marginTop: 8 }}>
+            {totalEmptyCylinders.toLocaleString("en-IN")} <span style={{ fontSize: 13, fontWeight: 600, color: "#64748b" }}>units</span>
+          </div>
+          <div style={{ fontSize: 11, color: "#0284c7", fontWeight: 600, marginTop: 4 }}>
+            Available for plant refill return
+          </div>
+        </div>
+
+        <div style={{ ...card(), padding: 18, borderLeft: "4px solid #f97316" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+            <span>Total Stored Gas Weight</span>
+            <div style={{ width: 28, height: 28, borderRadius: 6, background: "#ffedd5", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Flame size={15} color="#ea580c" />
+            </div>
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: "#0f172a", marginTop: 8 }}>
+            {(totalGasWeightKg / 1000).toFixed(2)} <span style={{ fontSize: 13, fontWeight: 600, color: "#64748b" }}>Metric Tons</span>
+          </div>
+          <div style={{ fontSize: 11, color: "#ea580c", fontWeight: 600, marginTop: 4 }}>
+            {totalGasWeightKg.toLocaleString("en-IN")} kg net LPG stock
+          </div>
+        </div>
+
+        <div style={{ ...card(), padding: 18, borderLeft: configuredCount === 6 ? "4px solid #16a34a" : "4px solid #d97706" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "#64748b", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+            <span>Baseline Opening Stock</span>
+            <div style={{ width: 28, height: 28, borderRadius: 6, background: configuredCount === 6 ? "#dcfce7" : "#fef3c7", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <ShieldCheck size={15} color={configuredCount === 6 ? "#16a34a" : "#d97706"} />
+            </div>
+          </div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: configuredCount === 6 ? "#166534" : "#b45309", marginTop: 8 }}>
+            {configuredCount} / 6 <span style={{ fontSize: 13, fontWeight: 600, color: "#64748b" }}>Configured</span>
+          </div>
+          <div style={{ fontSize: 11, color: configuredCount === 6 ? "#16a34a" : "#b45309", fontWeight: 600, marginTop: 4 }}>
+            {configuredCount === 6 ? "All 6 product baselines verified" : "Unconfigured items track movements"}
+          </div>
+        </div>
+      </div>
+
+      {/* ── 6 SUBSECTIONS NAVIGATION TABS ── */}
+      <div style={{
+        display: "flex", gap: 6, overflowX: "auto", borderBottom: "2px solid #e2e8f0",
+        paddingBottom: 2, background: "#ffffff", padding: "8px 12px", borderRadius: 12,
+        boxShadow: "0 1px 2px rgba(0,0,0,0.04)"
+      }}>
         {[
           { id: "overview", label: "1. Inventory Overview", icon: Package, count: 6 },
           { id: "receipts", label: "2. Stock Receipts", icon: ArrowDownLeft, count: receiptMovements.length },
@@ -231,20 +346,24 @@ export default function InventoryPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-4 py-3 text-xs font-semibold border-b-2 transition-all whitespace-nowrap ${
-                isActive
-                  ? "border-orange-500 text-orange-600 bg-orange-50/40"
-                  : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-300"
-              }`}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 7, padding: "10px 16px",
+                borderRadius: 8, border: "none", cursor: "pointer",
+                background: isActive ? "#fff7ed" : "transparent",
+                color: isActive ? "#ea580c" : "#475569",
+                fontWeight: isActive ? 800 : 600,
+                fontSize: 13, whiteSpace: "nowrap", transition: "all .12s",
+                borderBottom: isActive ? "3px solid #ea580c" : "3px solid transparent",
+              }}
             >
-              <Icon className="w-4 h-4" />
+              <Icon size={16} color={isActive ? "#ea580c" : "#64748b"} />
               <span>{tab.label}</span>
               {tab.count !== undefined && (
-                <span
-                  className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
-                    isActive ? "bg-orange-200 text-orange-900" : "bg-slate-100 text-slate-600"
-                  }`}
-                >
+                <span style={{
+                  fontSize: 10.5, fontWeight: 800, padding: "2px 7px", borderRadius: 100,
+                  background: isActive ? "#fed7aa" : "#e2e8f0",
+                  color: isActive ? "#9a3412" : "#475569",
+                }}>
                   {tab.count}
                 </span>
               )}
@@ -253,446 +372,551 @@ export default function InventoryPage() {
         })}
       </div>
 
-      {/* TAB 1: INVENTORY OVERVIEW */}
+      {/* ── TAB 1: INVENTORY OVERVIEW (6 APPROVED PRODUCTS) ── */}
       {activeTab === "overview" && (
-        <div className="space-y-4">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">Current Godown Stock — 6 Approved LPG Products</h2>
-                <p className="text-xs text-slate-500">Live physical count based on verified receipts, dispatches, and returns.</p>
-              </div>
-              <span className="text-xs text-slate-400 font-mono">Formula: Opening + Receipts − Dispatches + Adjustments</span>
+        <div style={{ ...card(), overflow: "hidden" }}>
+          <div style={{
+            padding: "16px 20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc",
+            display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10
+          }}>
+            <div>
+              <h2 style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", margin: 0 }}>
+                Godown Inventory Balance — 6 Approved LPG Products
+              </h2>
+              <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                Current physical stock in Godown calculated from configured opening stock and verified movements.
+              </p>
             </div>
+            <span style={{ fontSize: 11, color: "#64748b", fontFamily: "monospace", background: "#e2e8f0", padding: "4px 8px", borderRadius: 6 }}>
+              Formula: Opening + Receipts − Dispatches + Adjustments
+            </span>
+          </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-                  <tr>
-                    <th className="py-3 px-4">Product Name</th>
-                    <th className="py-3 px-4">Ref Weight</th>
-                    <th className="py-3 px-4 text-center">Opening Stock Status</th>
-                    <th className="py-3 px-4 text-right">Filled in Stock</th>
-                    <th className="py-3 px-4 text-right">Empty Cylinders</th>
-                    <th className="py-3 px-4 text-right">Total Gas Weight (kg)</th>
-                    <th className="py-3 px-4">Last Updated</th>
-                    {isAdmin && <th className="py-3 px-4 text-right">Actions</th>}
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: "#f1f5f9", borderBottom: "1.5px solid #cbd5e1", textAlign: "left", color: "#475569", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                  <th style={{ padding: "12px 18px" }}>Product Name & Code</th>
+                  <th style={{ padding: "12px 18px", textAlign: "right" }}>Ref Weight</th>
+                  <th style={{ padding: "12px 18px", textAlign: "center" }}>Opening Baseline Status</th>
+                  <th style={{ padding: "12px 18px", textAlign: "right" }}>Filled in Godown</th>
+                  <th style={{ padding: "12px 18px", textAlign: "right" }}>Empty in Godown</th>
+                  <th style={{ padding: "12px 18px", textAlign: "right" }}>Total Gas Weight</th>
+                  <th style={{ padding: "12px 18px" }}>Last Updated</th>
+                  {isAdmin && <th style={{ padding: "12px 18px", textAlign: "right" }}>Admin Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {warehouseStock.map((item) => {
+                  const hasOpening = item.filledOpeningStock !== null;
+                  const filledTotal = hasOpening
+                    ? (item.filledOpeningStock || 0) + item.filledStockReceived - item.filledStockIssued
+                    : item.filledStockReceived - item.filledStockIssued;
+
+                  const emptyTotal = item.emptyOpeningStock !== null
+                    ? (item.emptyOpeningStock || 0) + item.emptyStockReceived - item.emptyStockIssued
+                    : item.emptyStockReceived - item.emptyStockIssued;
+
+                  const totalWeightKg = Math.max(0, filledTotal) * item.referenceWeightKg;
+
+                  return (
+                    <tr key={item.productId} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      {/* Product Name */}
+                      <td style={{ padding: "14px 18px" }}>
+                        <div style={{ fontWeight: 800, color: "#0f172a", fontSize: 14 }}>
+                          {item.productName}
+                        </div>
+                        <div style={{ fontSize: 11, fontFamily: "monospace", color: "#64748b", marginTop: 2 }}>
+                          {item.productCode}
+                        </div>
+                      </td>
+
+                      {/* Reference Weight */}
+                      <td style={{ padding: "14px 18px", textAlign: "right", fontFamily: "monospace", fontWeight: 700, color: "#334155" }}>
+                        {item.referenceWeightKg} kg
+                      </td>
+
+                      {/* Opening Baseline Status */}
+                      <td style={{ padding: "14px 18px", textAlign: "center" }}>
+                        {hasOpening ? (
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 6,
+                            background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0"
+                          }}>
+                            Configured ({item.filledOpeningStock}F / {item.emptyOpeningStock}E)
+                          </span>
+                        ) : (
+                          <span style={{
+                            fontSize: 11, fontWeight: 800, padding: "3px 9px", borderRadius: 6,
+                            background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a"
+                          }}>
+                            Opening Stock Not Configured
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Filled in Godown */}
+                      <td style={{ padding: "14px 18px", textAlign: "right" }}>
+                        <div style={{ fontWeight: 900, fontSize: 16, color: "#0f172a" }}>
+                          {hasOpening ? Math.max(0, filledTotal) : `${filledTotal >= 0 ? "+" : ""}${filledTotal}`}
+                        </div>
+                        <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 2 }}>
+                          +{item.filledStockReceived} in / −{item.filledStockIssued} out
+                        </div>
+                      </td>
+
+                      {/* Empty in Godown */}
+                      <td style={{ padding: "14px 18px", textAlign: "right" }}>
+                        <div style={{ fontWeight: 900, fontSize: 16, color: "#334155" }}>
+                          {item.emptyOpeningStock !== null ? Math.max(0, emptyTotal) : `${emptyTotal >= 0 ? "+" : ""}${emptyTotal}`}
+                        </div>
+                        <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 2 }}>
+                          +{item.emptyStockReceived} ret / −{item.emptyStockIssued} out
+                        </div>
+                      </td>
+
+                      {/* Total Weight */}
+                      <td style={{ padding: "14px 18px", textAlign: "right" }}>
+                        <div style={{ fontWeight: 800, fontSize: 14, color: "#0284c7" }}>
+                          {totalWeightKg.toLocaleString("en-IN")} kg
+                        </div>
+                        <div style={{ fontSize: 10.5, color: "#64748b", marginTop: 2 }}>
+                          {(totalWeightKg / 1000).toFixed(2)} MT gas
+                        </div>
+                      </td>
+
+                      {/* Last Updated */}
+                      <td style={{ padding: "14px 18px", fontSize: 11.5, color: "#64748b" }}>
+                        {item.lastUpdated}
+                      </td>
+
+                      {/* Admin Actions */}
+                      {isAdmin && (
+                        <td style={{ padding: "14px 18px", textAlign: "right" }}>
+                          <button
+                            onClick={() => {
+                              setOpeningForm({
+                                productId: item.productId,
+                                filledOpening: item.filledOpeningStock !== null ? String(item.filledOpeningStock) : "",
+                                emptyOpening: item.emptyOpeningStock !== null ? String(item.emptyOpeningStock) : "",
+                              });
+                              setShowOpeningModal(true);
+                            }}
+                            style={{
+                              padding: "5px 12px", borderRadius: 6, border: "1px solid #fed7aa",
+                              background: "#fff7ed", color: "#c2410c", fontSize: 11.5, fontWeight: 700,
+                              cursor: "pointer", transition: "all .12s"
+                            }}
+                          >
+                            Set Opening
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB 2: STOCK RECEIPTS ── */}
+      {activeTab === "receipts" && (
+        <div style={{ ...card(), overflow: "hidden" }}>
+          <div style={{
+            padding: "16px 20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc",
+            display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10
+          }}>
+            <div>
+              <h2 style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", margin: 0 }}>
+                Stock Receipts from Bottling Plant ({receiptMovements.length})
+              </h2>
+              <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                Verified shipments of filled cylinders received into the godown from IOCL bottling facilities.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowReceiptModal(true)}
+              style={{
+                padding: "8px 14px", borderRadius: 8, border: "none",
+                background: "#16a34a", color: "#ffffff", fontSize: 12.5, fontWeight: 700,
+                cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
+              }}
+            >
+              <Plus size={14} /> Add Stock Receipt
+            </button>
+          </div>
+
+          <div style={{ overflowX: "auto" }}>
+            {receiptMovements.length === 0 ? (
+              <div style={{ padding: 48, textAlign: "center", color: "#64748b" }}>
+                <ArrowDownLeft size={32} style={{ margin: "0 auto 10px", color: "#cbd5e1" }} />
+                <div style={{ fontWeight: 700, color: "#1e293b" }}>No stock receipts recorded yet</div>
+                <p style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+                  Click &quot;Add Stock Receipt&quot; to log incoming truck deliveries from the bottling plant.
+                </p>
+              </div>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "#f1f5f9", borderBottom: "1.5px solid #cbd5e1", textAlign: "left", color: "#475569", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                    <th style={{ padding: "12px 18px" }}>Receipt #</th>
+                    <th style={{ padding: "12px 18px" }}>Date</th>
+                    <th style={{ padding: "12px 18px" }}>Product Name</th>
+                    <th style={{ padding: "12px 18px", textAlign: "right" }}>Quantity</th>
+                    <th style={{ padding: "12px 18px" }}>Challan / Invoice #</th>
+                    <th style={{ padding: "12px 18px" }}>Bottling Plant Source</th>
+                    <th style={{ padding: "12px 18px" }}>Location</th>
+                    <th style={{ padding: "12px 18px" }}>Recorded By</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {warehouseStock.map((item) => {
-                    const hasConfiguredOpening = item.filledOpeningStock !== null;
-                    const filledTotal = hasConfiguredOpening
-                      ? (item.filledOpeningStock || 0) + item.filledStockReceived - item.filledStockIssued
-                      : item.filledStockReceived - item.filledStockIssued;
+                <tbody>
+                  {receiptMovements.map((m) => (
+                    <tr key={m.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={{ padding: "12px 18px", fontFamily: "monospace", fontWeight: 800, color: "#0f172a" }}>{m.movementNum}</td>
+                      <td style={{ padding: "12px 18px", color: "#475569" }}>{m.date}</td>
+                      <td style={{ padding: "12px 18px", fontWeight: 700, color: "#1e293b" }}>{m.productName}</td>
+                      <td style={{ padding: "12px 18px", textAlign: "right", fontWeight: 800, color: "#16a34a", fontSize: 14 }}>
+                        +{m.qty}
+                      </td>
+                      <td style={{ padding: "12px 18px", fontFamily: "monospace", color: "#475569" }}>{m.refNum || "—"}</td>
+                      <td style={{ padding: "12px 18px", color: "#475569" }}>{m.supplierSource || "IOCL Bottling Plant"}</td>
+                      <td style={{ padding: "12px 18px", color: "#64748b" }}>{m.warehouseLocation || "Main Godown"}</td>
+                      <td style={{ padding: "12px 18px", fontWeight: 600, color: "#0f172a" }}>{m.recordedBy}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
 
-                    const emptyTotal = item.emptyOpeningStock !== null
-                      ? (item.emptyOpeningStock || 0) + item.emptyStockReceived - item.emptyStockIssued
-                      : item.emptyStockReceived - item.emptyStockIssued;
+      {/* ── TAB 3: STOCK ISSUES ── */}
+      {activeTab === "issues" && (
+        <div style={{ ...card(), overflow: "hidden" }}>
+          <div style={{
+            padding: "16px 20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc",
+            display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10
+          }}>
+            <div>
+              <h2 style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", margin: 0 }}>
+                Stock Issues (Customer Dispatches) ({issueMovements.length})
+              </h2>
+              <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                Filled cylinders automatically deducted from warehouse inventory upon delivery confirmation.
+              </p>
+            </div>
+          </div>
 
-                    const totalWeightKg = Math.max(0, filledTotal) * item.referenceWeightKg;
+          <div style={{ overflowX: "auto" }}>
+            {issueMovements.length === 0 ? (
+              <div style={{ padding: 48, textAlign: "center", color: "#64748b" }}>
+                <ArrowUpRight size={32} style={{ margin: "0 auto 10px", color: "#cbd5e1" }} />
+                <div style={{ fontWeight: 700, color: "#1e293b" }}>No stock issues logged yet</div>
+                <p style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+                  Confirmed deliveries will automatically register filled cylinder stock issues here.
+                </p>
+              </div>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "#f1f5f9", borderBottom: "1.5px solid #cbd5e1", textAlign: "left", color: "#475569", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                    <th style={{ padding: "12px 18px" }}>Issue #</th>
+                    <th style={{ padding: "12px 18px" }}>Date</th>
+                    <th style={{ padding: "12px 18px" }}>Product Name</th>
+                    <th style={{ padding: "12px 18px", textAlign: "right" }}>Quantity</th>
+                    <th style={{ padding: "12px 18px" }}>Delivery Reference</th>
+                    <th style={{ padding: "12px 18px" }}>Remarks</th>
+                    <th style={{ padding: "12px 18px" }}>Recorded By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {issueMovements.map((m) => (
+                    <tr key={m.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={{ padding: "12px 18px", fontFamily: "monospace", fontWeight: 800, color: "#0f172a" }}>{m.movementNum}</td>
+                      <td style={{ padding: "12px 18px", color: "#475569" }}>{m.date}</td>
+                      <td style={{ padding: "12px 18px", fontWeight: 700, color: "#1e293b" }}>{m.productName}</td>
+                      <td style={{ padding: "12px 18px", textAlign: "right", fontWeight: 800, color: "#dc2626", fontSize: 14 }}>
+                        −{m.qty}
+                      </td>
+                      <td style={{ padding: "12px 18px", fontFamily: "monospace", color: "#475569" }}>{m.refNum || "—"}</td>
+                      <td style={{ padding: "12px 18px", color: "#64748b" }}>{m.remarks || "Delivery supply to customer"}</td>
+                      <td style={{ padding: "12px 18px", fontWeight: 600, color: "#0f172a" }}>{m.recordedBy}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
 
-                    return (
-                      <tr key={item.productId} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-slate-900 text-sm">{item.productName}</div>
-                          <div className="text-[11px] font-mono text-slate-500">{item.productCode}</div>
-                        </td>
+      {/* ── TAB 4: STOCK ADJUSTMENTS ── */}
+      {activeTab === "adjustments" && (
+        <div style={{ ...card(), overflow: "hidden" }}>
+          <div style={{
+            padding: "16px 20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc",
+            display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10
+          }}>
+            <div>
+              <h2 style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", margin: 0 }}>
+                Stock Adjustments & Physical Audit Reconciliation ({adjustmentMovements.length})
+              </h2>
+              <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                Track valve defects, pin leaks, and physical audit reconciliation. Staff submissions require Admin approval.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowAdjustmentModal(true)}
+              style={{
+                padding: "8px 14px", borderRadius: 8, border: "none",
+                background: "#0f172a", color: "#ffffff", fontSize: 12.5, fontWeight: 700,
+                cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
+              }}
+            >
+              <Plus size={14} /> New Stock Adjustment
+            </button>
+          </div>
 
-                        <td className="py-3.5 px-4 font-mono font-semibold text-slate-700">
-                          {item.referenceWeightKg} kg
-                        </td>
-
-                        <td className="py-3.5 px-4 text-center">
-                          {hasConfiguredOpening ? (
-                            <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              Configured ({item.filledOpeningStock}F / {item.emptyOpeningStock}E)
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                              Opening Stock Not Configured
-                            </span>
+          <div style={{ overflowX: "auto" }}>
+            {adjustmentMovements.length === 0 ? (
+              <div style={{ padding: 48, textAlign: "center", color: "#64748b" }}>
+                <Sliders size={32} style={{ margin: "0 auto 10px", color: "#cbd5e1" }} />
+                <div style={{ fontWeight: 700, color: "#1e293b" }}>No stock adjustments logged</div>
+                <p style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+                  Use stock adjustments to correct inventory counts for damaged cylinders or audit reconciliation.
+                </p>
+              </div>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "#f1f5f9", borderBottom: "1.5px solid #cbd5e1", textAlign: "left", color: "#475569", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                    <th style={{ padding: "12px 18px" }}>Adjustment #</th>
+                    <th style={{ padding: "12px 18px" }}>Date</th>
+                    <th style={{ padding: "12px 18px" }}>Product Name</th>
+                    <th style={{ padding: "12px 18px", textAlign: "right" }}>Adjustment Qty</th>
+                    <th style={{ padding: "12px 18px" }}>Reason & Notes</th>
+                    <th style={{ padding: "12px 18px" }}>Recorded By</th>
+                    <th style={{ padding: "12px 18px" }}>Status</th>
+                    {isAdmin && <th style={{ padding: "12px 18px", textAlign: "right" }}>Admin Actions</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {adjustmentMovements.map((m) => (
+                    <tr key={m.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={{ padding: "12px 18px", fontFamily: "monospace", fontWeight: 800, color: "#0f172a" }}>{m.movementNum}</td>
+                      <td style={{ padding: "12px 18px", color: "#475569" }}>{m.date}</td>
+                      <td style={{ padding: "12px 18px", fontWeight: 700, color: "#1e293b" }}>{m.productName}</td>
+                      <td style={{ padding: "12px 18px", textAlign: "right", fontWeight: 800, color: "#0f172a", fontSize: 14 }}>
+                        {m.qty}
+                      </td>
+                      <td style={{ padding: "12px 18px", color: "#475569" }}>{m.remarks}</td>
+                      <td style={{ padding: "12px 18px", fontWeight: 600, color: "#0f172a" }}>{m.recordedBy}</td>
+                      <td style={{ padding: "12px 18px" }}>
+                        {m.status === "approved" ? (
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: "#dcfce7", color: "#166534", border: "1px solid #bbf7d0" }}>
+                            Approved
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a" }}>
+                            Pending Admin Approval
+                          </span>
+                        )}
+                      </td>
+                      {isAdmin && (
+                        <td style={{ padding: "12px 18px", textAlign: "right" }}>
+                          {m.status === "pending_approval" && (
+                            <button
+                              onClick={() => approveStockAdjustment(m.id, currentSessionUser?.fullName || "Bachan Admin")}
+                              style={{
+                                padding: "4px 10px", borderRadius: 6, border: "none",
+                                background: "#16a34a", color: "#fff", fontSize: 11.5, fontWeight: 700, cursor: "pointer"
+                              }}
+                            >
+                              Approve
+                            </button>
                           )}
                         </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
 
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="font-extrabold text-sm text-slate-900">
-                            {hasConfiguredOpening ? Math.max(0, filledTotal) : `${filledTotal >= 0 ? "+" : ""}${filledTotal}`}
-                          </div>
-                          <span className="text-[10px] text-slate-500">
-                            +{item.filledStockReceived} in / −{item.filledStockIssued} out
+      {/* ── TAB 5: CYLINDER RETURNS ── */}
+      {activeTab === "returns" && (
+        <div style={{ ...card(), overflow: "hidden" }}>
+          <div style={{
+            padding: "16px 20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc",
+            display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10
+          }}>
+            <div>
+              <h2 style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", margin: 0 }}>
+                Cylinder Returns (Empty Cylinders Received into Godown) ({returnMovements.length})
+              </h2>
+              <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                Empty cylinders returned by customers automatically increase empty stock in the godown.
+              </p>
+            </div>
+            <Link
+              href="/deliveries?tab=received"
+              style={{
+                padding: "8px 14px", borderRadius: 8, border: "none",
+                background: "#ea580c", color: "#ffffff", fontSize: 12.5, fontWeight: 700,
+                textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6,
+              }}
+            >
+              Delivery Returns Register →
+            </Link>
+          </div>
+
+          <div style={{ overflowX: "auto" }}>
+            {returnMovements.length === 0 ? (
+              <div style={{ padding: 48, textAlign: "center", color: "#64748b" }}>
+                <RotateCcw size={32} style={{ margin: "0 auto 10px", color: "#cbd5e1" }} />
+                <div style={{ fontWeight: 700, color: "#1e293b" }}>No empty cylinder returns logged yet</div>
+                <p style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+                  Empty cylinders returned upon customer delivery confirmation will automatically populate this register.
+                </p>
+              </div>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "#f1f5f9", borderBottom: "1.5px solid #cbd5e1", textAlign: "left", color: "#475569", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                    <th style={{ padding: "12px 18px" }}>Return #</th>
+                    <th style={{ padding: "12px 18px" }}>Date</th>
+                    <th style={{ padding: "12px 18px" }}>Product Name</th>
+                    <th style={{ padding: "12px 18px", textAlign: "right" }}>Empties Received</th>
+                    <th style={{ padding: "12px 18px" }}>Delivery Challan</th>
+                    <th style={{ padding: "12px 18px" }}>Godown Location</th>
+                    <th style={{ padding: "12px 18px" }}>Recorded By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {returnMovements.map((m) => (
+                    <tr key={m.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={{ padding: "12px 18px", fontFamily: "monospace", fontWeight: 800, color: "#0f172a" }}>{m.movementNum}</td>
+                      <td style={{ padding: "12px 18px", color: "#475569" }}>{m.date}</td>
+                      <td style={{ padding: "12px 18px", fontWeight: 700, color: "#1e293b" }}>{m.productName}</td>
+                      <td style={{ padding: "12px 18px", textAlign: "right", fontWeight: 800, color: "#0284c7", fontSize: 14 }}>
+                        +{m.qty} empty
+                      </td>
+                      <td style={{ padding: "12px 18px", fontFamily: "monospace", color: "#475569" }}>{m.refNum || "—"}</td>
+                      <td style={{ padding: "12px 18px", color: "#64748b" }}>{m.warehouseLocation || "Main Godown"}</td>
+                      <td style={{ padding: "12px 18px", fontWeight: 600, color: "#0f172a" }}>{m.recordedBy}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB 6: MOVEMENT HISTORY ── */}
+      {activeTab === "history" && (
+        <div style={{ ...card(), overflow: "hidden" }}>
+          <div style={{
+            padding: "16px 20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc",
+            display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10
+          }}>
+            <div>
+              <h2 style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", margin: 0 }}>
+                Chronological Inventory Movement Ledger ({stockMovements.length})
+              </h2>
+              <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                Complete immutable audit trail of all physical cylinder movements in and out of the godown.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ overflowX: "auto" }}>
+            {stockMovements.length === 0 ? (
+              <div style={{ padding: 48, textAlign: "center", color: "#64748b" }}>
+                <History size={32} style={{ margin: "0 auto 10px", color: "#cbd5e1" }} />
+                <div style={{ fontWeight: 700, color: "#1e293b" }}>No movements recorded yet</div>
+              </div>
+            ) : (
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "#f1f5f9", borderBottom: "1.5px solid #cbd5e1", textAlign: "left", color: "#475569", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                    <th style={{ padding: "12px 18px" }}>Movement #</th>
+                    <th style={{ padding: "12px 18px" }}>Date</th>
+                    <th style={{ padding: "12px 18px" }}>Type</th>
+                    <th style={{ padding: "12px 18px" }}>Product</th>
+                    <th style={{ padding: "12px 18px", textAlign: "right" }}>Quantity</th>
+                    <th style={{ padding: "12px 18px", textAlign: "center" }}>Direction</th>
+                    <th style={{ padding: "12px 18px" }}>Reference</th>
+                    <th style={{ padding: "12px 18px" }}>Recorded By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stockMovements.map((m) => {
+                    const isInflow = m.type === "receipt" || m.type === "cylinder_return";
+                    return (
+                      <tr key={m.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                        <td style={{ padding: "12px 18px", fontFamily: "monospace", fontWeight: 800, color: "#0f172a" }}>{m.movementNum}</td>
+                        <td style={{ padding: "12px 18px", color: "#475569" }}>{m.date}</td>
+                        <td style={{ padding: "12px 18px", fontWeight: 700, color: "#1e293b", textTransform: "capitalize" }}>
+                          {m.type.replace(/_/g, " ")}
+                        </td>
+                        <td style={{ padding: "12px 18px", color: "#0f172a" }}>{m.productName}</td>
+                        <td style={{ padding: "12px 18px", textAlign: "right", fontWeight: 800, color: isInflow ? "#16a34a" : "#dc2626", fontSize: 14 }}>
+                          {isInflow ? `+${m.qty}` : `−${m.qty}`}
+                        </td>
+                        <td style={{ padding: "12px 18px", textAlign: "center" }}>
+                          <span style={{
+                            fontSize: 10.5, fontWeight: 800, padding: "3px 8px", borderRadius: 6,
+                            background: isInflow ? "#dcfce7" : "#fee2e2",
+                            color: isInflow ? "#166534" : "#991b1b",
+                            border: `1px solid ${isInflow ? "#bbf7d0" : "#fca5a5"}`
+                          }}>
+                            {isInflow ? "IN (Received)" : "OUT (Issued)"}
                           </span>
                         </td>
-
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="font-extrabold text-sm text-slate-800">
-                            {item.emptyOpeningStock !== null ? Math.max(0, emptyTotal) : `${emptyTotal >= 0 ? "+" : ""}${emptyTotal}`}
-                          </div>
-                          <span className="text-[10px] text-slate-500">
-                            +{item.emptyStockReceived} ret / −{item.emptyStockIssued} out
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="font-bold text-sky-700 text-sm">
-                            {totalWeightKg.toLocaleString("en-IN")} kg
-                          </div>
-                          <span className="text-[10px] text-slate-400">Equivalent gas</span>
-                        </td>
-
-                        <td className="py-3.5 px-4 text-slate-500 text-[11px]">
-                          {item.lastUpdated}
-                        </td>
-
-                        {isAdmin && (
-                          <td className="py-3.5 px-4 text-right">
-                            <button
-                              onClick={() => {
-                                setOpeningForm({
-                                  productId: item.productId,
-                                  filledOpening: item.filledOpeningStock !== null ? String(item.filledOpeningStock) : "",
-                                  emptyOpening: item.emptyOpeningStock !== null ? String(item.emptyOpeningStock) : "",
-                                });
-                                setShowOpeningModal(true);
-                              }}
-                              className="px-2.5 py-1 text-xs font-semibold text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded transition-colors"
-                            >
-                              Configure
-                            </button>
-                          </td>
-                        )}
+                        <td style={{ padding: "12px 18px", fontFamily: "monospace", color: "#64748b" }}>{m.refNum || "—"}</td>
+                        <td style={{ padding: "12px 18px", fontWeight: 600, color: "#0f172a" }}>{m.recordedBy}</td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: STOCK RECEIPTS */}
-      {activeTab === "receipts" && (
-        <div className="space-y-4">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900">Stock Receipts from Bottling Plant</h2>
-              <p className="text-xs text-slate-500">Log truck arrivals with filled cylinders from IOCL Bottling Plants.</p>
-            </div>
-            <button
-              onClick={() => setShowReceiptModal(true)}
-              className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm inline-flex items-center gap-1.5"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Stock Receipt
-            </button>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            {receiptMovements.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-500">
-                No stock receipts recorded yet. Click &quot;Add Stock Receipt&quot; to log incoming plant shipments.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-                    <tr>
-                      <th className="py-3 px-4">Receipt #</th>
-                      <th className="py-3 px-4">Date</th>
-                      <th className="py-3 px-4">Product</th>
-                      <th className="py-3 px-4 text-right">Quantity</th>
-                      <th className="py-3 px-4">Challan / Ref #</th>
-                      <th className="py-3 px-4">Plant Source</th>
-                      <th className="py-3 px-4">Location</th>
-                      <th className="py-3 px-4">Recorded By</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {receiptMovements.map((m) => (
-                      <tr key={m.id} className="hover:bg-slate-50/70">
-                        <td className="py-3 px-4 font-mono font-bold text-slate-800">{m.movementNum}</td>
-                        <td className="py-3 px-4 text-slate-600">{m.date}</td>
-                        <td className="py-3 px-4 font-semibold text-slate-900">{m.productName}</td>
-                        <td className="py-3 px-4 text-right font-extrabold text-emerald-700">+{m.qty}</td>
-                        <td className="py-3 px-4 font-mono text-slate-600">{m.refNum || "—"}</td>
-                        <td className="py-3 px-4 text-slate-600">{m.supplierSource || "IOCL Plant"}</td>
-                        <td className="py-3 px-4 text-slate-600">{m.warehouseLocation || "Main Godown"}</td>
-                        <td className="py-3 px-4 text-slate-700 font-medium">{m.recordedBy}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
             )}
           </div>
         </div>
       )}
 
-      {/* TAB 3: STOCK ISSUES */}
-      {activeTab === "issues" && (
-        <div className="space-y-4">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4">
-            <h2 className="text-sm font-bold text-slate-900">Stock Issues (Customer Dispatches)</h2>
-            <p className="text-xs text-slate-500">Filled cylinders automatically deducted from warehouse inventory upon delivery confirmation.</p>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            {issueMovements.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-500">
-                No stock issues recorded yet. Confirmed deliveries will automatically deduct stock here.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-                    <tr>
-                      <th className="py-3 px-4">Issue #</th>
-                      <th className="py-3 px-4">Date</th>
-                      <th className="py-3 px-4">Product</th>
-                      <th className="py-3 px-4 text-right">Quantity</th>
-                      <th className="py-3 px-4">Delivery Ref</th>
-                      <th className="py-3 px-4">Remarks</th>
-                      <th className="py-3 px-4">Recorded By</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {issueMovements.map((m) => (
-                      <tr key={m.id} className="hover:bg-slate-50/70">
-                        <td className="py-3 px-4 font-mono font-bold text-slate-800">{m.movementNum}</td>
-                        <td className="py-3 px-4 text-slate-600">{m.date}</td>
-                        <td className="py-3 px-4 font-semibold text-slate-900">{m.productName}</td>
-                        <td className="py-3 px-4 text-right font-extrabold text-red-600">−{m.qty}</td>
-                        <td className="py-3 px-4 font-mono text-slate-600">{m.refNum || "—"}</td>
-                        <td className="py-3 px-4 text-slate-600">{m.remarks || "Delivery supply"}</td>
-                        <td className="py-3 px-4 text-slate-700 font-medium">{m.recordedBy}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 4: STOCK ADJUSTMENTS */}
-      {activeTab === "adjustments" && (
-        <div className="space-y-4">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900">Stock Adjustments & Physical Audit Reconciliation</h2>
-              <p className="text-xs text-slate-500">
-                Correct for valve leakages, physical damages, and audit discrepancies. Staff submissions require Admin approval.
-              </p>
-            </div>
-            <button
-              onClick={() => setShowAdjustmentModal(true)}
-              className="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold inline-flex items-center gap-1.5"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              New Adjustment
-            </button>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            {adjustmentMovements.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-500">
-                No inventory adjustments recorded.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-                    <tr>
-                      <th className="py-3 px-4">Adjustment #</th>
-                      <th className="py-3 px-4">Date</th>
-                      <th className="py-3 px-4">Product</th>
-                      <th className="py-3 px-4 text-right">Adjustment Qty</th>
-                      <th className="py-3 px-4">Reason</th>
-                      <th className="py-3 px-4">Recorded By</th>
-                      <th className="py-3 px-4">Status</th>
-                      {isAdmin && <th className="py-3 px-4 text-right">Admin Action</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {adjustmentMovements.map((m) => (
-                      <tr key={m.id} className="hover:bg-slate-50/70">
-                        <td className="py-3 px-4 font-mono font-bold text-slate-800">{m.movementNum}</td>
-                        <td className="py-3 px-4 text-slate-600">{m.date}</td>
-                        <td className="py-3 px-4 font-semibold text-slate-900">{m.productName}</td>
-                        <td className="py-3 px-4 text-right font-extrabold text-slate-900">{m.qty}</td>
-                        <td className="py-3 px-4 text-slate-600">{m.remarks}</td>
-                        <td className="py-3 px-4 text-slate-700 font-medium">{m.recordedBy}</td>
-                        <td className="py-3 px-4">
-                          {m.status === "approved" ? (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              Approved
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-50 text-amber-700 border border-amber-200">
-                              Pending Approval
-                            </span>
-                          )}
-                        </td>
-                        {isAdmin && (
-                          <td className="py-3 px-4 text-right">
-                            {m.status === "pending_approval" && (
-                              <button
-                                onClick={() => approveStockAdjustment(m.id, currentSessionUser?.fullName || "Bachan Admin")}
-                                className="px-2.5 py-1 text-xs font-bold bg-emerald-600 text-white rounded hover:bg-emerald-500"
-                              >
-                                Approve
-                              </button>
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 5: CYLINDER RETURNS */}
-      {activeTab === "returns" && (
-        <div className="space-y-4">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900">Cylinder Returns (Empty Cylinders Received)</h2>
-              <p className="text-xs text-slate-500">Customer empty cylinder returns automatically increase warehouse empty stock.</p>
-            </div>
-            <Link
-              href="/deliveries?tab=received"
-              className="px-3.5 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold shadow-sm inline-flex items-center gap-1.5"
-            >
-              Delivery Empties Module
-            </Link>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            {returnMovements.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-500">
-                No customer empty cylinder returns logged yet. Empties returned upon delivery will appear here.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-                    <tr>
-                      <th className="py-3 px-4">Return #</th>
-                      <th className="py-3 px-4">Date</th>
-                      <th className="py-3 px-4">Product</th>
-                      <th className="py-3 px-4 text-right">Empties Received</th>
-                      <th className="py-3 px-4">Delivery Ref</th>
-                      <th className="py-3 px-4">Location</th>
-                      <th className="py-3 px-4">Recorded By</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {returnMovements.map((m) => (
-                      <tr key={m.id} className="hover:bg-slate-50/70">
-                        <td className="py-3 px-4 font-mono font-bold text-slate-800">{m.movementNum}</td>
-                        <td className="py-3 px-4 text-slate-600">{m.date}</td>
-                        <td className="py-3 px-4 font-semibold text-slate-900">{m.productName}</td>
-                        <td className="py-3 px-4 text-right font-extrabold text-blue-700">+{m.qty} empty</td>
-                        <td className="py-3 px-4 font-mono text-slate-600">{m.refNum || "—"}</td>
-                        <td className="py-3 px-4 text-slate-600">{m.warehouseLocation || "Main Godown"}</td>
-                        <td className="py-3 px-4 text-slate-700 font-medium">{m.recordedBy}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 6: MOVEMENT HISTORY */}
-      {activeTab === "history" && (
-        <div className="space-y-4">
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-4">
-            <h2 className="text-sm font-bold text-slate-900">Complete Inventory Movement Ledger</h2>
-            <p className="text-xs text-slate-500">Chronological audit trail of all physical cylinder inflows and outflows.</p>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-            {stockMovements.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-500">
-                No inventory movements recorded yet.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-                    <tr>
-                      <th className="py-3 px-4">Movement #</th>
-                      <th className="py-3 px-4">Date</th>
-                      <th className="py-3 px-4">Type</th>
-                      <th className="py-3 px-4">Product</th>
-                      <th className="py-3 px-4 text-right">Quantity</th>
-                      <th className="py-3 px-4">Direction</th>
-                      <th className="py-3 px-4">Ref Number</th>
-                      <th className="py-3 px-4">Recorded By</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {stockMovements.map((m) => {
-                      const isInflow = m.type === "receipt" || m.type === "cylinder_return";
-                      return (
-                        <tr key={m.id} className="hover:bg-slate-50/70">
-                          <td className="py-3 px-4 font-mono font-bold text-slate-800">{m.movementNum}</td>
-                          <td className="py-3 px-4 text-slate-600">{m.date}</td>
-                          <td className="py-3 px-4 capitalize font-semibold text-slate-800">
-                            {m.type.replace("_", " ")}
-                          </td>
-                          <td className="py-3 px-4 text-slate-900">{m.productName}</td>
-                          <td className="py-3 px-4 text-right font-bold text-slate-900">{m.qty}</td>
-                          <td className="py-3 px-4">
-                            <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                isInflow ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
-                              }`}
-                            >
-                              {isInflow ? "IN (Received)" : "OUT (Issued)"}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 font-mono text-slate-600">{m.refNum || "—"}</td>
-                          <td className="py-3 px-4 text-slate-700">{m.recordedBy}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 1: STOCK RECEIPT */}
+      {/* ── MODAL 1: STOCK RECEIPT ── */}
       {showReceiptModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between">
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 16
+        }}>
+          <div style={{ background: "#ffffff", borderRadius: 16, maxWidth: 520, width: "100%", padding: 24, boxShadow: "0 20px 50px rgba(0,0,0,0.3)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, borderBottom: "1px solid #e2e8f0", paddingBottom: 12 }}>
               <div>
-                <h3 className="text-base font-bold text-slate-900">Record Godown Stock Receipt</h3>
-                <p className="text-xs text-slate-500">Log incoming filled LPG cylinders from plant</p>
+                <h3 style={{ fontSize: 17, fontWeight: 800, color: "#0f172a", margin: 0 }}>Record Godown Stock Receipt</h3>
+                <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>Log incoming filled LPG cylinders received from bottling plant</p>
               </div>
-              <button onClick={() => setShowReceiptModal(false)} className="text-slate-400 font-bold">✕</button>
+              <button onClick={() => setShowReceiptModal(false)} style={{ background: "none", border: "none", fontSize: 18, color: "#94a3b8", cursor: "pointer", fontWeight: 700 }}>✕</button>
             </div>
 
-            <form onSubmit={handleReceiptSubmit} className="space-y-3.5">
+            <form onSubmit={handleReceiptSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Select Product *</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                  Select Product *
+                </label>
                 <select
                   value={receiptForm.productId}
                   onChange={(e) => setReceiptForm({ ...receiptForm, productId: e.target.value })}
-                  className="w-full p-2 text-xs border border-slate-300 rounded-lg"
+                  style={{ width: "100%", padding: "9px 12px", fontSize: 13, border: "1.5px solid #cbd5e1", borderRadius: 8, outline: "none", background: "#f8fafc" }}
                 >
                   {activeProducts.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -703,7 +927,9 @@ export default function InventoryPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Quantity Received (Filled Cylinders) *</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                  Quantity Received (Filled Cylinders) *
+                </label>
                 <input
                   type="number"
                   required
@@ -711,52 +937,62 @@ export default function InventoryPage() {
                   value={receiptForm.qty}
                   onChange={(e) => setReceiptForm({ ...receiptForm, qty: e.target.value })}
                   placeholder="e.g. 304"
-                  className="w-full p-2 text-xs border border-slate-300 rounded-lg"
+                  style={{ width: "100%", padding: "9px 12px", fontSize: 14, fontWeight: 700, border: "1.5px solid #cbd5e1", borderRadius: 8, outline: "none" }}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Plant Invoice / Challan Ref #</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                  Plant Invoice / Challan Reference #
+                </label>
                 <input
                   type="text"
                   value={receiptForm.refNum}
                   onChange={(e) => setReceiptForm({ ...receiptForm, refNum: e.target.value })}
                   placeholder="e.g. IOCL-CH-88239"
-                  className="w-full p-2 text-xs border border-slate-300 rounded-lg"
+                  style={{ width: "100%", padding: "9px 12px", fontSize: 13, border: "1.5px solid #cbd5e1", borderRadius: 8, outline: "none" }}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Bottling Plant Source</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                  Bottling Plant Source
+                </label>
                 <input
                   type="text"
                   value={receiptForm.supplierSource}
                   onChange={(e) => setReceiptForm({ ...receiptForm, supplierSource: e.target.value })}
-                  className="w-full p-2 text-xs border border-slate-300 rounded-lg"
+                  style={{ width: "100%", padding: "9px 12px", fontSize: 13, border: "1.5px solid #cbd5e1", borderRadius: 8, outline: "none" }}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Godown Storage Location</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                  Godown Storage Location
+                </label>
                 <input
                   type="text"
                   value={receiptForm.warehouseLocation}
                   onChange={(e) => setReceiptForm({ ...receiptForm, warehouseLocation: e.target.value })}
-                  className="w-full p-2 text-xs border border-slate-300 rounded-lg"
+                  style={{ width: "100%", padding: "9px 12px", fontSize: 13, border: "1.5px solid #cbd5e1", borderRadius: 8, outline: "none" }}
                 />
               </div>
 
-              <div className="pt-2 flex justify-end gap-2">
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8, borderTop: "1px solid #e2e8f0", paddingTop: 14 }}>
                 <button
                   type="button"
                   onClick={() => setShowReceiptModal(false)}
-                  className="px-3 py-1.5 border border-slate-300 text-xs font-semibold text-slate-700 rounded-lg"
+                  style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #cbd5e1", background: "#fff", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow-sm"
+                  style={{
+                    padding: "8px 18px", borderRadius: 8, border: "none",
+                    background: "#16a34a", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
+                    boxShadow: "0 2px 6px rgba(22,163,74,0.3)"
+                  }}
                 >
                   Save Stock Receipt
                 </button>
@@ -766,25 +1002,31 @@ export default function InventoryPage() {
         </div>
       )}
 
-      {/* MODAL 2: STOCK ADJUSTMENT */}
+      {/* ── MODAL 2: STOCK ADJUSTMENT ── */}
       {showAdjustmentModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between">
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 16
+        }}>
+          <div style={{ background: "#ffffff", borderRadius: 16, maxWidth: 500, width: "100%", padding: 24, boxShadow: "0 20px 50px rgba(0,0,0,0.3)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, borderBottom: "1px solid #e2e8f0", paddingBottom: 12 }}>
               <div>
-                <h3 className="text-base font-bold text-slate-900">Stock Adjustment</h3>
-                <p className="text-xs text-slate-500">Record physical count reconciliation or valve defects</p>
+                <h3 style={{ fontSize: 17, fontWeight: 800, color: "#0f172a", margin: 0 }}>New Stock Adjustment</h3>
+                <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>Record valve defects, leaks, or physical audit reconciliation</p>
               </div>
-              <button onClick={() => setShowAdjustmentModal(false)} className="text-slate-400 font-bold">✕</button>
+              <button onClick={() => setShowAdjustmentModal(false)} style={{ background: "none", border: "none", fontSize: 18, color: "#94a3b8", cursor: "pointer", fontWeight: 700 }}>✕</button>
             </div>
 
-            <form onSubmit={handleAdjustmentSubmit} className="space-y-3.5">
+            <form onSubmit={handleAdjustmentSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Select Product *</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                  Select Product *
+                </label>
                 <select
                   value={adjForm.productId}
                   onChange={(e) => setAdjForm({ ...adjForm, productId: e.target.value })}
-                  className="w-full p-2 text-xs border border-slate-300 rounded-lg"
+                  style={{ width: "100%", padding: "9px 12px", fontSize: 13, border: "1.5px solid #cbd5e1", borderRadius: 8, outline: "none", background: "#f8fafc" }}
                 >
                   {activeProducts.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -795,27 +1037,31 @@ export default function InventoryPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Adjustment Type *</label>
-                <div className="grid grid-cols-2 gap-2">
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                  Adjustment Direction *
+                </label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <button
                     type="button"
                     onClick={() => setAdjForm({ ...adjForm, isAddition: false })}
-                    className={`py-1.5 text-xs font-bold rounded-lg border ${
-                      !adjForm.isAddition
-                        ? "bg-red-50 text-red-700 border-red-300"
-                        : "bg-slate-50 text-slate-600 border-slate-200"
-                    }`}
+                    style={{
+                      padding: "8px 12px", borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+                      border: !adjForm.isAddition ? "2px solid #dc2626" : "1px solid #cbd5e1",
+                      background: !adjForm.isAddition ? "#fee2e2" : "#f8fafc",
+                      color: !adjForm.isAddition ? "#991b1b" : "#475569"
+                    }}
                   >
                     Deduct (− Count)
                   </button>
                   <button
                     type="button"
                     onClick={() => setAdjForm({ ...adjForm, isAddition: true })}
-                    className={`py-1.5 text-xs font-bold rounded-lg border ${
-                      adjForm.isAddition
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-                        : "bg-slate-50 text-slate-600 border-slate-200"
-                    }`}
+                    style={{
+                      padding: "8px 12px", borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: "pointer",
+                      border: adjForm.isAddition ? "2px solid #16a34a" : "1px solid #cbd5e1",
+                      background: adjForm.isAddition ? "#dcfce7" : "#f8fafc",
+                      color: adjForm.isAddition ? "#166534" : "#475569"
+                    }}
                   >
                     Add (+ Count)
                   </button>
@@ -823,7 +1069,9 @@ export default function InventoryPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Quantity *</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                  Quantity *
+                </label>
                 <input
                   type="number"
                   required
@@ -831,16 +1079,18 @@ export default function InventoryPage() {
                   value={adjForm.qty}
                   onChange={(e) => setAdjForm({ ...adjForm, qty: e.target.value })}
                   placeholder="e.g. 2"
-                  className="w-full p-2 text-xs border border-slate-300 rounded-lg"
+                  style={{ width: "100%", padding: "9px 12px", fontSize: 14, fontWeight: 700, border: "1.5px solid #cbd5e1", borderRadius: 8, outline: "none" }}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Reason *</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                  Reason *
+                </label>
                 <select
                   value={adjForm.reason}
                   onChange={(e) => setAdjForm({ ...adjForm, reason: e.target.value })}
-                  className="w-full p-2 text-xs border border-slate-300 rounded-lg"
+                  style={{ width: "100%", padding: "9px 12px", fontSize: 13, border: "1.5px solid #cbd5e1", borderRadius: 8, outline: "none", background: "#f8fafc" }}
                 >
                   <option value="Damaged / Defective Valve">Damaged / Defective Valve</option>
                   <option value="Cylinder Pin Leakage">Cylinder Pin Leakage</option>
@@ -849,17 +1099,20 @@ export default function InventoryPage() {
                 </select>
               </div>
 
-              <div className="pt-2 flex justify-end gap-2">
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8, borderTop: "1px solid #e2e8f0", paddingTop: 14 }}>
                 <button
                   type="button"
                   onClick={() => setShowAdjustmentModal(false)}
-                  className="px-3 py-1.5 border border-slate-300 text-xs font-semibold text-slate-700 rounded-lg"
+                  style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #cbd5e1", background: "#fff", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg shadow-sm"
+                  style={{
+                    padding: "8px 18px", borderRadius: 8, border: "none",
+                    background: "#0f172a", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  }}
                 >
                   {isAdmin ? "Apply Adjustment" : "Submit for Admin Approval"}
                 </button>
@@ -869,25 +1122,31 @@ export default function InventoryPage() {
         </div>
       )}
 
-      {/* MODAL 3: OPENING STOCK CONFIGURATION (ADMIN ONLY) */}
+      {/* ── MODAL 3: OPENING STOCK CONFIGURATION (ADMIN ONLY) ── */}
       {showOpeningModal && isAdmin && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-start justify-between">
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 16
+        }}>
+          <div style={{ background: "#ffffff", borderRadius: 16, maxWidth: 500, width: "100%", padding: 24, boxShadow: "0 20px 50px rgba(0,0,0,0.3)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, borderBottom: "1px solid #e2e8f0", paddingBottom: 12 }}>
               <div>
-                <h3 className="text-base font-bold text-slate-900">Configure Opening Stock</h3>
-                <p className="text-xs text-slate-500">Admin-only physical baseline configuration</p>
+                <h3 style={{ fontSize: 17, fontWeight: 800, color: "#0f172a", margin: 0 }}>Configure Opening Stock Baseline</h3>
+                <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>Admin-only verified baseline godown inventory</p>
               </div>
-              <button onClick={() => setShowOpeningModal(false)} className="text-slate-400 font-bold">✕</button>
+              <button onClick={() => setShowOpeningModal(false)} style={{ background: "none", border: "none", fontSize: 18, color: "#94a3b8", cursor: "pointer", fontWeight: 700 }}>✕</button>
             </div>
 
-            <form onSubmit={handleOpeningSubmit} className="space-y-3.5">
+            <form onSubmit={handleOpeningSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Select Product *</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                  Select Product *
+                </label>
                 <select
                   value={openingForm.productId}
                   onChange={(e) => setOpeningForm({ ...openingForm, productId: e.target.value })}
-                  className="w-full p-2 text-xs border border-slate-300 rounded-lg"
+                  style={{ width: "100%", padding: "9px 12px", fontSize: 13, border: "1.5px solid #cbd5e1", borderRadius: 8, outline: "none", background: "#f8fafc" }}
                 >
                   {activeProducts.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -898,7 +1157,9 @@ export default function InventoryPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Filled Cylinders Opening Stock *</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                  Filled Cylinders Opening Stock *
+                </label>
                 <input
                   type="number"
                   required
@@ -906,12 +1167,14 @@ export default function InventoryPage() {
                   value={openingForm.filledOpening}
                   onChange={(e) => setOpeningForm({ ...openingForm, filledOpening: e.target.value })}
                   placeholder="e.g. 150"
-                  className="w-full p-2 text-xs border border-slate-300 rounded-lg"
+                  style={{ width: "100%", padding: "9px 12px", fontSize: 14, fontWeight: 700, border: "1.5px solid #cbd5e1", borderRadius: 8, outline: "none" }}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Empty Cylinders Opening Stock *</label>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                  Empty Cylinders Opening Stock *
+                </label>
                 <input
                   type="number"
                   required
@@ -919,21 +1182,25 @@ export default function InventoryPage() {
                   value={openingForm.emptyOpening}
                   onChange={(e) => setOpeningForm({ ...openingForm, emptyOpening: e.target.value })}
                   placeholder="e.g. 80"
-                  className="w-full p-2 text-xs border border-slate-300 rounded-lg"
+                  style={{ width: "100%", padding: "9px 12px", fontSize: 14, fontWeight: 700, border: "1.5px solid #cbd5e1", borderRadius: 8, outline: "none" }}
                 />
               </div>
 
-              <div className="pt-2 flex justify-end gap-2">
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8, borderTop: "1px solid #e2e8f0", paddingTop: 14 }}>
                 <button
                   type="button"
                   onClick={() => setShowOpeningModal(false)}
-                  className="px-3 py-1.5 border border-slate-300 text-xs font-semibold text-slate-700 rounded-lg"
+                  style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #cbd5e1", background: "#fff", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold rounded-lg shadow-sm"
+                  style={{
+                    padding: "8px 18px", borderRadius: 8, border: "none",
+                    background: "#ea580c", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
+                    boxShadow: "0 2px 6px rgba(234,88,12,0.3)"
+                  }}
                 >
                   Save Baseline
                 </button>
