@@ -1,105 +1,81 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+
+import Link from "next/link";
+import { ShieldCheck, Users, ArrowRight, Flame } from "lucide-react";
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const isConfigured = process.env.NEXT_PUBLIC_SUPABASE_URL !== "your_supabase_project_url"
-    && !!process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError(""); setLoading(true);
-    const fd = new FormData(e.currentTarget);
-    const email = fd.get("email") as string;
-    const password = fd.get("password") as string;
-
-    if (!isConfigured) {
-      // Demo mode: bypass auth
-      setLoading(false);
-      router.push("/dashboard");
-      return;
-    }
-
-    try {
-      const { signIn } = await import("@/lib/actions");
-      const r = await signIn(email, password);
-      if (r.error) { setError(r.error); setLoading(false); return; }
-      router.push("/dashboard");
-    } catch {
-      setError("Unable to connect to database. Check your Supabase credentials.");
-      setLoading(false);
-    }
-  }
-
   return (
-    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"var(--sidebar-bg)", padding:20 }}>
-      <div style={{ width:"100%", maxWidth:420 }}>
-        {/* Logo */}
-        <div style={{ textAlign:"center", marginBottom:32 }}>
-          <div style={{ width:64, height:64, background:"var(--orange)", borderRadius:16, display:"flex", alignItems:"center", justifyContent:"center", fontSize:32, margin:"0 auto 16px" }}>🔥</div>
-          <h1 style={{ fontSize:22, fontWeight:900, color:"#fff" }}>Bachan Gas Service</h1>
-          <p style={{ fontSize:13, color:"var(--sidebar-text)", marginTop:4 }}>LPG Distribution ERP</p>
-        </div>
-
-        {/* Card */}
-        <div style={{ background:"var(--card)", borderRadius:16, padding:32, boxShadow:"0 20px 60px rgba(0,0,0,.4)" }}>
-          <h2 style={{ fontSize:18, fontWeight:800, marginBottom:6 }}>Sign in to your account</h2>
-          <p style={{ fontSize:13, color:"var(--fg2)", marginBottom:24 }}>Enter your credentials to access the ERP.</p>
-
-          {!isConfigured && (
-            <div style={{ background:"#fef3c7", border:"1.5px solid #fde68a", borderRadius:10, padding:12, marginBottom:20, fontSize:12, color:"#92400e" }}>
-              <strong>Demo mode:</strong> Supabase not configured. Click Sign In to enter the dashboard.
-            </div>
-          )}
-
-          {error && (
-            <div style={{ background:"#fee2e2", border:"1.5px solid #fca5a5", borderRadius:10, padding:12, marginBottom:16, fontSize:13, color:"#b91c1c" }}>
-              ❌ {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} style={{ display:"flex", flexDirection:"column", gap:16 }}>
-            <div>
-              <label style={{ display:"block", fontSize:12, fontWeight:600, color:"var(--fg2)", marginBottom:6 }}>Email Address</label>
-              <input name="email" type="email" required defaultValue="admin@bachanagas.in"
-                placeholder="admin@bachangas.in"
-                style={{ width:"100%", border:"1.5px solid var(--border)", borderRadius:9, padding:"10px 14px", fontSize:14, color:"var(--fg)", background:"var(--bg)", outline:"none" }}
-                onFocus={e => e.target.style.borderColor="var(--orange)"}
-                onBlur={e => e.target.style.borderColor="var(--border)"}
-              />
-            </div>
-            <div>
-              <label style={{ display:"block", fontSize:12, fontWeight:600, color:"var(--fg2)", marginBottom:6 }}>Password</label>
-              <input name="password" type="password" required defaultValue="admin123"
-                placeholder="••••••••"
-                style={{ width:"100%", border:"1.5px solid var(--border)", borderRadius:9, padding:"10px 14px", fontSize:14, color:"var(--fg)", background:"var(--bg)", outline:"none" }}
-                onFocus={e => e.target.style.borderColor="var(--orange)"}
-                onBlur={e => e.target.style.borderColor="var(--border)"}
-              />
-            </div>
-            <button type="submit" disabled={loading}
-              style={{ width:"100%", background:"var(--orange)", color:"#fff", border:"none", borderRadius:9, padding:"12px", fontSize:14, fontWeight:700, cursor:"pointer", opacity:loading?0.7:1, transition:"opacity .15s" }}>
-              {loading ? "Signing in…" : "Sign In →"}
-            </button>
-          </form>
-
-          <div style={{ marginTop:20, padding:14, background:"var(--bg)", borderRadius:10, fontSize:12, color:"var(--fg2)" }}>
-            <strong style={{ color:"var(--fg)" }}>Default credentials:</strong><br />
-            Email: <code>admin@bachangas.in</code><br />
-            Password: <code>admin123</code><br />
-            <span style={{ fontSize:11, marginTop:4, display:"block" }}>(Change after first login in Administration → Settings)</span>
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-lg">
+        {/* Branding */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-600 to-orange-500 text-white shadow-xl shadow-orange-500/20 mb-4">
+            <Flame className="w-9 h-9" />
+          </div>
+          <h1 className="text-3xl font-extrabold text-white tracking-tight">Bachan Gas Service</h1>
+          <p className="text-sm text-slate-400 mt-1.5 font-medium">
+            Commercial LPG Distribution ERP
+          </p>
+          <div className="inline-flex items-center gap-2 mt-3 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs text-slate-400">
+            <span>IOCL Distributor Code: <strong className="text-slate-200">0000110351</strong></span>
+            <span>·</span>
+            <span>Ludhiana, Punjab</span>
           </div>
         </div>
 
-        <p style={{ textAlign:"center", fontSize:11, color:"var(--sidebar-text)", marginTop:16 }}>
-          Bachan Gas Service ERP v1.0 · Powered by Next.js + Supabase
-        </p>
+        {/* Portal Selection Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Admin Portal Card */}
+          <Link
+            href="/login/admin"
+            className="group relative bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-orange-500/50 rounded-2xl p-6 transition-all duration-200 shadow-xl shadow-black/40 hover:shadow-orange-500/10 flex flex-col justify-between"
+          >
+            <div>
+              <div className="w-12 h-12 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center text-orange-400 mb-4 group-hover:scale-105 group-hover:bg-orange-500/20 transition-all">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <h2 className="text-base font-bold text-white group-hover:text-orange-400 transition-colors">
+                Administrator
+              </h2>
+              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                Full governance: customer onboarding approvals, product rate master, credit limits, godown inventory, and audit logs.
+              </p>
+            </div>
+            <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs font-semibold text-orange-400">
+              <span>Admin Login</span>
+              <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+            </div>
+          </Link>
+
+          {/* Staff Portal Card */}
+          <Link
+            href="/login/staff"
+            className="group relative bg-slate-900 hover:bg-slate-850 border border-slate-800 hover:border-blue-500/50 rounded-2xl p-6 transition-all duration-200 shadow-xl shadow-black/40 hover:shadow-blue-500/10 flex flex-col justify-between"
+          >
+            <div>
+              <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-4 group-hover:scale-105 group-hover:bg-blue-500/20 transition-all">
+                <Users className="w-6 h-6" />
+              </div>
+              <h2 className="text-base font-bold text-white group-hover:text-blue-400 transition-colors">
+                Operations Staff
+              </h2>
+              <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                Operational tasks: customer lookups, order processing, delivery recording, cylinder returns, and stock receipts.
+              </p>
+            </div>
+            <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs font-semibold text-blue-400">
+              <span>Staff Login</span>
+              <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
+            </div>
+          </Link>
+        </div>
+
+        {/* Security Notice */}
+        <div className="mt-8 text-center text-xs text-slate-500">
+          <p>Protected Enterprise System · Authenticated Session Required</p>
+          <p className="mt-1">Role-based access strictly enforced according to business security policies</p>
+        </div>
       </div>
     </div>
   );
 }
-

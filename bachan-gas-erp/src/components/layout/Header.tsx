@@ -23,7 +23,17 @@ export default function Header({ onMenu, onToggle, collapsed }: Props) {
   const dropRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  const { customers, orders, deliveries, currentUserRole, setCurrentUserRole, missedOrderAlerts, resetToSeed } = useERPStore();
+  const {
+    customers,
+    orders,
+    deliveries,
+    currentUserRole,
+    setCurrentUserRole,
+    currentSessionUser,
+    logoutUser,
+    missedOrderAlerts,
+    resetToSeed,
+  } = useERPStore();
   const activeAlerts = missedOrderAlerts.filter(a => a.status === "active").length;
 
   const toggleDark = () => {
@@ -487,31 +497,44 @@ export default function Header({ onMenu, onToggle, collapsed }: Props) {
           onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
         >
           <div style={{
-            width: 32, height: 32, background: "#f97316", borderRadius: "50%",
+            width: 32, height: 32, background: currentUserRole === "admin" ? "#f97316" : "#2563eb", borderRadius: "50%",
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 11, fontWeight: 800, color: "#fff", flexShrink: 0,
-          }}>BA</div>
+          }}>
+            {currentUserRole === "admin" ? "AD" : "ST"}
+          </div>
         </button>
 
         {showUserMenu && (
           <div style={{
             position: "absolute", top: 44, right: 0,
-            width: 220, background: "#fff", border: "1px solid #e2e8f0",
+            width: 230, background: "#fff", border: "1px solid #e2e8f0",
             borderRadius: 10, boxShadow: "0 10px 25px rgba(0,0,0,.15)",
             zIndex: 200, overflow: "hidden"
           }}>
             <div style={{ padding: "12px 14px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b" }}>Bachan Admin</div>
-              <div style={{ fontSize: 11, color: "#64748b" }}>admin@bachangas.in</div>
-              <span style={{ display: "inline-block", fontSize: 10, fontWeight: 700, background: "#dbeafe", color: "#1d4ed8", padding: "1px 6px", borderRadius: 4, marginTop: 4 }}>
-                SUPER ADMIN
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b" }}>
+                {currentSessionUser?.fullName || (currentUserRole === "admin" ? "Bachan Administrator" : "Operations Staff")}
+              </div>
+              <div style={{ fontSize: 11, color: "#64748b" }}>
+                {currentSessionUser?.email || (currentUserRole === "admin" ? "admin@bachangas.in" : "staff@bachangas.in")}
+              </div>
+              <span style={{
+                display: "inline-block", fontSize: 10, fontWeight: 700,
+                background: currentUserRole === "admin" ? "#ffedd5" : "#dbeafe",
+                color: currentUserRole === "admin" ? "#c2410c" : "#1d4ed8",
+                padding: "2px 8px", borderRadius: 4, marginTop: 4, textTransform: "uppercase"
+              }}>
+                {currentUserRole === "admin" ? "ADMINISTRATOR" : "OPERATIONS STAFF"}
               </span>
             </div>
             <div style={{ padding: "6px 0" }}>
-              <Link href="/settings" onClick={() => setShowUserMenu(false)}
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", fontSize: 12.5, color: "#1e293b", textDecoration: "none" }}>
-                <Settings size={14} color="#64748b" /> Agency Settings
-              </Link>
+              {currentUserRole === "admin" && (
+                <Link href="/settings" onClick={() => setShowUserMenu(false)}
+                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", fontSize: 12.5, color: "#1e293b", textDecoration: "none" }}>
+                  <Settings size={14} color="#64748b" /> Agency Settings
+                </Link>
+              )}
               <button
                 onClick={() => {
                   if (confirm("Reset demo data to default clean state?")) {
@@ -526,10 +549,16 @@ export default function Header({ onMenu, onToggle, collapsed }: Props) {
                 <RotateCcw size={14} /> Reset Demo Data
               </button>
               <div style={{ height: 1, background: "#e2e8f0", margin: "4px 0" }} />
-              <Link href="/login" onClick={() => setShowUserMenu(false)}
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", fontSize: 12.5, color: "#dc2626", textDecoration: "none" }}>
+              <button
+                onClick={() => {
+                  logoutUser();
+                  setShowUserMenu(false);
+                  router.push("/login");
+                }}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", fontSize: 12.5, color: "#dc2626", textDecoration: "none", width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}
+              >
                 <LogOut size={14} /> Sign Out
-              </Link>
+              </button>
             </div>
           </div>
         )}

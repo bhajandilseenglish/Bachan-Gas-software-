@@ -303,7 +303,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 900 }}>3. Collect Empties</div>
-              <div style={{ fontSize: 11, color: "#ede9fe" }}>Khali cylinder wapsi</div>
+              <div style={{ fontSize: 11, color: "#ede9fe" }}>Empty cylinder return</div>
             </div>
           </Link>
 
@@ -466,7 +466,7 @@ export default function DashboardPage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 900, color: "#0891b2", display: "flex", alignItems: "center", gap: 6 }}>
-              <RefreshCw size={16} /> 2. Cylinders & Empties (Khali Cylinder Record)
+              <RefreshCw size={16} /> 2. Cylinders & Empties Tracking
             </div>
             <div style={{ fontSize: 11.5, color: "#64748b" }}>Empty cylinders collected back vs cylinders still with customers</div>
           </div>
@@ -484,7 +484,7 @@ export default function DashboardPage() {
           <MetCard
             title="Pending With Customers"
             value={`${emptyPendingTotal} units`}
-            sub="Khali cylinder baaki with clients"
+            sub="Empty cylinders awaiting return"
             Icon={AlertTriangle}
             color={emptyPendingTotal > 0 ? "#dc2626" : "#16a34a"}
             href="/reports/cylinders"
@@ -497,7 +497,7 @@ export default function DashboardPage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 900, color: "#16a34a", display: "flex", alignItems: "center", gap: 6 }}>
-              <IndianRupee size={16} /> 3. Payments & Market Udhaar (Khata Balance)
+              <IndianRupee size={16} /> 3. Financial Receivables & Collections
             </div>
             <div style={{ fontSize: 11.5, color: "#64748b" }}>Collections received today, total customer balance & overdue payments</div>
           </div>
@@ -521,7 +521,7 @@ export default function DashboardPage() {
             href="/finance/outstanding"
           />
           <MetCard
-            title="Overdue Udhaar"
+            title="Overdue Receivables"
             value={totalOverdue > 0 ? INR(totalOverdue) : "₹0"}
             sub={totalOverdue > 0 ? `${customers.filter(c => (c.overdue || 0) > 0).length} overdue accounts` : "Zero overdue accounts"}
             Icon={AlertCircle}

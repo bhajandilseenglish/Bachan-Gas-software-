@@ -61,7 +61,15 @@ export interface Customer {
   area: string;
   state: string;
   pin: string;
+  billing_address?: string;
+  delivery_address?: string;
+  remarks?: string;
   status: "active" | "inactive" | "suspended";
+  approval_status?: "approved" | "pending_approval" | "rejected" | "correction_requested";
+  submitted_by?: string;
+  approved_by?: string;
+  approved_at?: string;
+  rejection_reason?: string;
 
   // Financial & Tenure
   credit_limit: number | null;
@@ -118,6 +126,7 @@ export interface CylinderProduct {
   hsn: string;
   active: boolean;
   weight?: number; // Internal legacy reference only
+  referenceWeightKg?: number; // Verified Product Reference Weight in kg (e.g. 47.5, 425, 19)
 }
 
 export interface BasicRateHistoryItem {
@@ -142,11 +151,98 @@ export interface CustomerRate {
   productName: string;
   defaultRate: number;
   agreedRate: number; // Basic rate per cylinder/unit
+  referenceWeightKg?: number; // Product Reference Weight in kg
+  calculatedRatePerKg?: number; // Calculated Rate per KG = agreedRate / referenceWeightKg
+  gstRatePct?: number; // Statutory 18% GST
   previousRate?: number;
   effectiveFrom: string;
   validTill: string;
   approvedBy: string;
   rateHistory?: { rate: number; effectiveFrom: string; approvedBy: string; changedAt: string; notes?: string }[];
+}
+
+export interface ERPUser {
+  id: string;
+  username: string;
+  fullName: string;
+  email?: string;
+  role: "admin" | "staff";
+  permissions: string[];
+  isActive: boolean;
+}
+
+export interface CustomerApprovalRequest {
+  id: string;
+  requestNum: string;
+  customerId: string;
+  customerData: Partial<Customer>;
+  status: "pending_approval" | "approved" | "rejected" | "correction_requested";
+  submittedBy: string;
+  submittedAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
+  correctionNotes?: string;
+}
+
+export interface WarehouseStockItem {
+  productId: string;
+  productName: string;
+  productCode: string;
+  referenceWeightKg: number;
+  filledOpeningStock: number | null; // null = "Opening Stock Not Configured"
+  filledStockReceived: number;
+  filledStockIssued: number;
+  emptyOpeningStock: number | null;
+  emptyStockReceived: number;
+  emptyStockIssued: number;
+  lastUpdated: string;
+}
+
+export interface StockMovement {
+  id: string;
+  movementNum: string;
+  date: string;
+  type: "receipt" | "issue" | "adjustment" | "cylinder_return";
+  productId: string;
+  productName: string;
+  qty: number;
+  isEmpty: boolean;
+  refNum?: string;
+  supplierSource?: string;
+  warehouseLocation?: string;
+  recordedBy: string;
+  status: "approved" | "pending_approval" | "rejected";
+  approvedBy?: string;
+  approvedAt?: string;
+  remarks?: string;
+  createdAt: string;
+}
+
+export type PaymentMethod = "Cash" | "UPI" | "Bank Transfer" | "Cheque" | "Other";
+export type ChequeStatus = "received" | "deposited" | "cleared" | "bounced" | "cancelled";
+
+export interface ChequeDetails {
+  chequeNum: string;
+  chequeDate: string;
+  bankName: string;
+  status: ChequeStatus;
+}
+
+export interface UpiDetails {
+  utrRef: string;
+  provider?: string;
+}
+
+export interface BankTransferDetails {
+  utrRef: string;
+  bankName: string;
+  transferDate: string;
+}
+
+export interface OtherPaymentDetails {
+  description: string;
+  refNum?: string;
 }
 
 export interface RateChangeRequest {
@@ -333,17 +429,24 @@ export interface Invoice {
 export interface PaymentReceipt {
   id: string;
   num: string;
+  receiptNum?: string;
   customerId: string;
   customerName: string;
   customerCode: string;
   date: string;
   amount: number;
-  method: "Cash" | "UPI" | "Bank Transfer" | "Cheque" | "Other";
+  method: PaymentMethod;
   ref: string;
   remarks?: string;
   receivedBy: string;
   status: "cleared" | "pending" | "bounced";
+  chequeDetails?: ChequeDetails;
+  upiDetails?: UpiDetails;
+  bankDetails?: BankTransferDetails;
+  otherDetails?: OtherPaymentDetails;
   allocatedInvoices?: string[];
+  clearedAt?: string;
+  clearedBy?: string;
 }
 
 export interface LedgerEntry {
@@ -362,7 +465,7 @@ export interface AuditLog {
   id: string;
   timestamp: string;
   user: string;
-  action: "create" | "update" | "approve" | "reject" | "dispatch" | "deliver" | "post" | "payment" | "rate_change";
+  action: "create" | "update" | "approve" | "reject" | "dispatch" | "deliver" | "post" | "payment" | "rate_change" | "login" | "logout";
   resource: string;
   details?: string;
   ip: string;
@@ -423,13 +526,56 @@ export interface StaffUser {
 
 // ── EXACTLY SIX ACTIVE LPG PRODUCTS (Per-Unit / Cylinder, 18% GST) ─────────
 export const EXACT_SIX_ACTIVE_PRODUCTS: CylinderProduct[] = [
-  { id: "p-lot-475", code: "LPG-475-LOT", name: "47.5kg LOT", type: "Commercial", sku: "BGS-LOT-475", rate: 0, tax: 18, hsn: "27111900", active: true },
-  { id: "p-vot-475", code: "LPG-475-VOT", name: "47.5kg VOT", type: "Commercial", sku: "BGS-VOT-475", rate: 0, tax: 18, hsn: "27111900", active: true },
-  { id: "p-jmb-425", code: "LPG-425-JUMBO", name: "425kg jumbo", type: "Commercial", sku: "BGS-JMB-425", rate: 0, tax: 18, hsn: "27111900", active: true },
-  { id: "p-nno-190", code: "LPG-190-NANO", name: "19kg nano cut", type: "Commercial", sku: "BGS-NNO-190", rate: 0, tax: 18, hsn: "27111900", active: true },
-  { id: "p-xtj-190", code: "LPG-190-XTRATEJ", name: "19 kg extra tej", type: "Commercial", sku: "BGS-XTJ-190", rate: 0, tax: 18, hsn: "27111900", active: true },
-  { id: "p-nrm-190", code: "LPG-190-NORMAL", name: "19 kg normal", type: "Commercial", sku: "BGS-NRM-190", rate: 0, tax: 18, hsn: "27111900", active: true },
+  { id: "p-lot-475", code: "LPG-475-LOT", name: "47.5kg LOT", type: "Commercial", sku: "BGS-LOT-475", rate: 0, tax: 18, hsn: "27111900", active: true, referenceWeightKg: 47.5 },
+  { id: "p-vot-475", code: "LPG-475-VOT", name: "47.5kg VOT", type: "Commercial", sku: "BGS-VOT-475", rate: 0, tax: 18, hsn: "27111900", active: true, referenceWeightKg: 47.5 },
+  { id: "p-jmb-425", code: "LPG-425-JUMBO", name: "425kg jumbo", type: "Commercial", sku: "BGS-JMB-425", rate: 0, tax: 18, hsn: "27111900", active: true, referenceWeightKg: 425.0 },
+  { id: "p-nno-190", code: "LPG-190-NANO", name: "19kg nano cut", type: "Commercial", sku: "BGS-NNO-190", rate: 0, tax: 18, hsn: "27111900", active: true, referenceWeightKg: 19.0 },
+  { id: "p-xtj-190", code: "LPG-190-XTRATEJ", name: "19 kg extra tej", type: "Commercial", sku: "BGS-XTJ-190", rate: 0, tax: 18, hsn: "27111900", active: true, referenceWeightKg: 19.0 },
+  { id: "p-nrm-190", code: "LPG-190-NORMAL", name: "19 kg normal", type: "Commercial", sku: "BGS-NRM-190", rate: 0, tax: 18, hsn: "27111900", active: true, referenceWeightKg: 19.0 },
 ];
+
+export const INITIAL_ERP_USERS: ERPUser[] = [
+  {
+    id: "usr-admin-01",
+    username: "admin",
+    fullName: "Bachan Administrator",
+    email: "admin@bachangas.in",
+    role: "admin",
+    permissions: [
+      "customers.manage", "customers.approve", "products.manage", "rates.manage",
+      "finance.manage", "credit.manage", "inventory.manage", "inventory.adjust",
+      "orders.manage", "reports.view_all", "users.manage", "settings.manage"
+    ],
+    isActive: true,
+  },
+  {
+    id: "usr-staff-01",
+    username: "staff",
+    fullName: "Operations Staff",
+    email: "staff@bachangas.in",
+    role: "staff",
+    permissions: [
+      "customers.view", "customers.submit_registration", "orders.create",
+      "deliveries.record", "cylinder_returns.record", "payments.record",
+      "inventory.receipt", "reports.view_operational"
+    ],
+    isActive: true,
+  },
+];
+
+export const INITIAL_WAREHOUSE_STOCK: WarehouseStockItem[] = EXACT_SIX_ACTIVE_PRODUCTS.map(p => ({
+  productId: p.id,
+  productName: p.name,
+  productCode: p.code,
+  referenceWeightKg: p.referenceWeightKg || 19,
+  filledOpeningStock: null, // "Opening Stock Not Configured"
+  filledStockReceived: 0,
+  filledStockIssued: 0,
+  emptyOpeningStock: null,
+  emptyStockReceived: 0,
+  emptyStockIssued: 0,
+  lastUpdated: "Opening Stock Not Configured",
+}));
 
 // Preserved historical products (deactivated for new orders)
 export const ARCHIVED_HISTORICAL_PRODUCTS: CylinderProduct[] = [
@@ -568,6 +714,43 @@ interface ERPStore {
   settings: AgencySettings;
   users: StaffUser[];
 
+  // Auth & Roles
+  erpUsers: ERPUser[];
+  currentSessionUser: ERPUser | null;
+  loginUser: (username: string, password: string, role?: "admin" | "staff") => { success: boolean; error?: string; user?: ERPUser };
+  logoutUser: () => void;
+
+  // Customer Onboarding & Approvals
+  customerApprovals: CustomerApprovalRequest[];
+  submitNewCustomerRegistration: (cust: Partial<Customer>, submittedBy?: string) => Customer;
+  approveCustomerRegistration: (requestIdOrCustomerId: string, approvedBy?: string) => void;
+  rejectCustomerRegistration: (requestIdOrCustomerId: string, reason: string, rejectedBy?: string) => void;
+  requestCustomerCorrection: (requestIdOrCustomerId: string, notes: string, requestedBy?: string) => void;
+
+  // Warehouse Inventory Management
+  warehouseStock: WarehouseStockItem[];
+  stockMovements: StockMovement[];
+  recordStockReceipt: (data: { date: string; productId: string; qty: number; refNum?: string; supplierSource?: string; warehouseLocation?: string; recordedBy?: string; remarks?: string }) => StockMovement;
+  recordStockAdjustment: (data: { date: string; productId: string; qty: number; isAddition: boolean; reason: string; recordedBy?: string }) => StockMovement;
+  approveStockAdjustment: (id: string, approvedBy?: string) => void;
+  configureOpeningStock: (productId: string, filledOpening: number, emptyOpening: number, configuredBy?: string) => void;
+
+  // Payment Receipts & Structured Methods
+  recordStructuredPayment: (data: {
+    customerId: string;
+    amount: number;
+    date: string;
+    method: PaymentMethod;
+    ref?: string;
+    remarks?: string;
+    receivedBy?: string;
+    chequeDetails?: ChequeDetails;
+    upiDetails?: UpiDetails;
+    bankDetails?: BankTransferDetails;
+    otherDetails?: OtherPaymentDetails;
+  }) => PaymentReceipt;
+  updateChequeStatus: (paymentId: string, status: ChequeStatus, updatedBy?: string) => void;
+
   // User Actions
   addUser: (user: Omit<StaffUser, "id" | "lastActive">) => StaffUser;
   updateUser: (id: string, updates: Partial<StaffUser>) => void;
@@ -670,6 +853,12 @@ export const useERPStore = create<ERPStore>()(
     (set, get) => ({
       currentUserRole: "admin",
       setCurrentUserRole: (role) => set({ currentUserRole: role }),
+
+      erpUsers: INITIAL_ERP_USERS,
+      currentSessionUser: INITIAL_ERP_USERS[0],
+      customerApprovals: [],
+      warehouseStock: INITIAL_WAREHOUSE_STOCK,
+      stockMovements: [],
 
       customers: INITIAL_REAL_CUSTOMERS,
       products: ALL_PRODUCTS_INITIAL,
@@ -1218,6 +1407,9 @@ export const useERPStore = create<ERPStore>()(
       setCustomerRate: (rateData) => {
         const cust = get().customers.find(c => c.id === rateData.customerId || c.code === rateData.customerCode);
         const sapCode = rateData.sapCode || cust?.sap_code;
+        const prod = get().products.find(p => p.id === rateData.productId || p.code === rateData.productId);
+        const refWeight = prod?.referenceWeightKg || rateData.referenceWeightKg || 19;
+        const calculatedRatePerKg = Number((rateData.agreedRate / refWeight).toFixed(2));
 
         const existingIdx = get().customerRates.findIndex(
           (r) =>
@@ -1238,6 +1430,9 @@ export const useERPStore = create<ERPStore>()(
           updated[existingIdx] = {
             ...oldRate,
             ...rateData,
+            referenceWeightKg: refWeight,
+            calculatedRatePerKg,
+            gstRatePct: 18,
             sapCode,
             previousRate: oldRate.agreedRate,
             rateHistory: [historyEntry, ...(oldRate.rateHistory || [])],
@@ -1251,7 +1446,7 @@ export const useERPStore = create<ERPStore>()(
                 user: state.currentUserRole === "admin" ? "Bachan Admin" : "Staff User",
                 action: "rate_change",
                 resource: `Customer Rate for ${rateData.customerName}`,
-                details: `Updated basic rate for ${rateData.productName} from ₹${oldRate.agreedRate} to ₹${rateData.agreedRate.toLocaleString("en-IN")}/unit (+ 18% GST). Approved by: ${rateData.approvedBy}`,
+                details: `Updated basic rate for ${rateData.productName} from ₹${oldRate.agreedRate} to ₹${rateData.agreedRate.toLocaleString("en-IN")}/unit (₹${calculatedRatePerKg}/kg + 18% GST). Approved by: ${rateData.approvedBy}`,
                 ip: "127.0.0.1",
               },
               ...state.auditLogs,
@@ -1260,6 +1455,9 @@ export const useERPStore = create<ERPStore>()(
         } else {
           const newRate: CustomerRate = {
             ...rateData,
+            referenceWeightKg: refWeight,
+            calculatedRatePerKg,
+            gstRatePct: 18,
             id: `rate-${Date.now()}`,
             sapCode,
             previousRate: undefined,
@@ -1282,7 +1480,7 @@ export const useERPStore = create<ERPStore>()(
                 user: "Bachan Admin",
                 action: "rate_change",
                 resource: `Customer Rate for ${rateData.customerName}`,
-                details: `Set basic rate for ${rateData.productName} to ₹${rateData.agreedRate.toLocaleString("en-IN")}/unit (+ 18% GST)`,
+                details: `Set basic rate for ${rateData.productName} to ₹${rateData.agreedRate.toLocaleString("en-IN")}/unit (₹${calculatedRatePerKg}/kg + 18% GST)`,
                 ip: "127.0.0.1",
               },
               ...state.auditLogs,
@@ -1648,6 +1846,50 @@ export const useERPStore = create<ERPStore>()(
           createdAt: getKolkataDateString(),
         };
 
+        // Stock movements for filled cylinder issue and empty cylinder return
+        const prod = get().products.find(p => p.id === delivery.product || p.name === delivery.product || p.code === delivery.product);
+        const pId = prod ? prod.id : delivery.product;
+        const pName = prod ? prod.name : delivery.product;
+        const pCode = prod ? prod.code : "LPG";
+
+        const issueMov: StockMovement = {
+          id: `mov-${Date.now()}-iss`,
+          movementNum: `BGS-STK-${String(get().stockMovements.length + 1).padStart(5, "0")}`,
+          date: delivery.date || getKolkataDateString(),
+          productId: pId,
+          productName: pName,
+          type: "issue",
+          qty: filledDelivered,
+          isEmpty: false,
+          refNum: delivery.num,
+          warehouseLocation: "Main Godown",
+          recordedBy: get().currentUserRole === "admin" ? "Bachan Admin" : "Staff User",
+          status: "approved",
+          remarks: `Delivery supply to ${delivery.customerName}`,
+          createdAt: getKolkataDateString(),
+        };
+
+        const newStockMovements = [issueMov];
+        if (empties > 0) {
+          const returnMov: StockMovement = {
+            id: `mov-${Date.now()}-ret`,
+            movementNum: `BGS-STK-${String(get().stockMovements.length + 2).padStart(5, "0")}`,
+            date: delivery.date || getKolkataDateString(),
+            productId: pId,
+            productName: pName,
+            type: "cylinder_return",
+            qty: empties,
+            isEmpty: true,
+            refNum: delivery.num,
+            warehouseLocation: "Main Godown",
+            recordedBy: get().currentUserRole === "admin" ? "Bachan Admin" : "Staff User",
+            status: "approved",
+            remarks: `Empty cylinders returned by ${delivery.customerName}`,
+            createdAt: getKolkataDateString(),
+          };
+          newStockMovements.push(returnMov);
+        }
+
         set((state) => ({
           deliveries: state.deliveries.map((d) =>
             d.id === delivery.id ? { ...d, status: "delivered" } : d
@@ -1656,6 +1898,18 @@ export const useERPStore = create<ERPStore>()(
             o.id === delivery.orderId ? { ...o, status: "delivered" } : o
           ),
           cylinderExchangeLedger: [exchangeRecord, ...state.cylinderExchangeLedger],
+          stockMovements: [...newStockMovements, ...state.stockMovements],
+          warehouseStock: state.warehouseStock.map(ws => {
+            if (ws.productId === pId || ws.productName === pName) {
+              return {
+                ...ws,
+                filledStockIssued: ws.filledStockIssued + filledDelivered,
+                emptyStockReceived: ws.emptyStockReceived + empties,
+                lastUpdated: getKolkataFormattedDate(),
+              };
+            }
+            return ws;
+          }),
           customers: state.customers.map((c) =>
             c.id === delivery.customerId
               ? {
@@ -1810,6 +2064,7 @@ export const useERPStore = create<ERPStore>()(
         const newPayment: PaymentReceipt = {
           id: String(Date.now()),
           num,
+          receiptNum: num,
           customerId: cust.id,
           customerName: cust.name,
           customerCode: cust.code,
@@ -2087,6 +2342,661 @@ export const useERPStore = create<ERPStore>()(
           ],
         }));
         return tempPass;
+      },
+
+      // ── AUTH & ROLES (Admin vs Staff) ──
+      loginUser: (username, password, role) => {
+        const normalized = username.trim().toLowerCase();
+        const user = get().erpUsers.find((u) => u.username.toLowerCase() === normalized && u.isActive);
+        if (!user) {
+          return { success: false, error: "Invalid username or account is deactivated" };
+        }
+        if (role && user.role !== role) {
+          return {
+            success: false,
+            error: `Access denied. This portal is strictly for ${role.toUpperCase()} accounts. You cannot log in with role '${user.role}'.`,
+          };
+        }
+        const validAdmin = user.role === "admin" && (password === "admin123" || password === "bachanadmin" || password === "admin");
+        const validStaff = user.role === "staff" && (password === "staff123" || password === "bachanstaff" || password === "staff");
+        if (!validAdmin && !validStaff && password !== "demo123") {
+          return { success: false, error: "Invalid password. Please check your credentials." };
+        }
+
+        set({
+          currentSessionUser: user,
+          currentUserRole: user.role,
+        });
+
+        set((state) => ({
+          auditLogs: [
+            {
+              id: `a-${Date.now()}`,
+              timestamp: getKolkataFormattedDate(),
+              user: user.fullName,
+              action: "login",
+              resource: `Session ${user.username}`,
+              details: `Authenticated user '${user.fullName}' with role '${user.role}'`,
+              ip: "127.0.0.1",
+            },
+            ...state.auditLogs,
+          ],
+        }));
+
+        return { success: true, user };
+      },
+
+      logoutUser: () => {
+        const prev = get().currentSessionUser;
+        set({
+          currentSessionUser: null,
+        });
+        if (prev) {
+          set((state) => ({
+            auditLogs: [
+              {
+                id: `a-${Date.now()}`,
+                timestamp: getKolkataFormattedDate(),
+                user: prev.fullName,
+                action: "logout",
+                resource: `Session ${prev.username}`,
+                details: `User logged out`,
+                ip: "127.0.0.1",
+              },
+              ...state.auditLogs,
+            ],
+          }));
+        }
+      },
+
+      // ── CUSTOMER ONBOARDING & APPROVALS (Option A vs Option B) ──
+      submitNewCustomerRegistration: (cust, submittedBy) => {
+        const nextIdx = get().customers.length + 1;
+        const code = `CX${String(nextIdx).padStart(7, "0")}`;
+        const currentUser = get().currentSessionUser;
+        const submitterName = submittedBy || currentUser?.fullName || (get().currentUserRole === "admin" ? "Bachan Admin" : "Staff User");
+        const reqNum = `REQ-${Date.now().toString().slice(-6)}`;
+        const isAdmin = get().currentUserRole === "admin";
+
+        const newCust: Customer = {
+          id: `cust-${Date.now()}`,
+          code,
+          name: cust.name || "Unnamed Customer",
+          business: cust.business || cust.name || "Commercial Customer",
+          category: cust.category || "commercial",
+          consumer_type: cust.consumer_type || "Commercial (Non-Domestic)",
+          contact_person: cust.contact_person || "",
+          mobile: cust.mobile || "",
+          alt_mobile: cust.alt_mobile || "",
+          email: cust.email || "",
+          gst: cust.gst || "",
+          city: cust.city || "Ludhiana",
+          area: cust.area || "Industrial Area",
+          state: cust.state || "Punjab",
+          pin: cust.pin || "141003",
+          billing_address: cust.billing_address || "",
+          delivery_address: cust.delivery_address || "",
+          status: isAdmin ? "active" : "inactive",
+          approval_status: isAdmin ? "approved" : "pending_approval",
+          submitted_by: submitterName,
+          approved_by: isAdmin ? submitterName : undefined,
+          approved_at: isAdmin ? getKolkataFormattedDate() : undefined,
+          credit_limit: cust.credit_limit ?? null,
+          payment_tenure_days: cust.payment_tenure_days || 15,
+          payment_terms: `${cust.payment_tenure_days || 15} Days`,
+          outstanding: null,
+          overdue: null,
+          last_payment: null,
+          last_payment_date: "—",
+          last_supply: "—",
+          last_supply_qty: 0,
+          last_supply_product: "—",
+          pending_orders: 0,
+          created_at: getKolkataDateString(),
+          is_financial_configured: false,
+          total_filled_delivered: 0,
+          total_empty_received: 0,
+          empty_cylinders_pending: 0,
+          ordering_frequency: "not_configured",
+          missed_order_alert_active: false,
+          alert_paused: false,
+        };
+
+        const approvalReq: CustomerApprovalRequest = {
+          id: `appr-${Date.now()}`,
+          requestNum: reqNum,
+          customerId: newCust.id,
+          customerData: newCust,
+          status: isAdmin ? "approved" : "pending_approval",
+          submittedBy: submitterName,
+          submittedAt: getKolkataFormattedDate(),
+          reviewedBy: isAdmin ? submitterName : undefined,
+          reviewedAt: isAdmin ? getKolkataFormattedDate() : undefined,
+        };
+
+        set((state) => ({
+          customers: [newCust, ...state.customers],
+          customerApprovals: [approvalReq, ...state.customerApprovals],
+          auditLogs: [
+            {
+              id: `a-${Date.now()}`,
+              timestamp: getKolkataFormattedDate(),
+              user: submitterName,
+              action: "create",
+              resource: `Customer Registration ${newCust.code}`,
+              details: `Submitted new commercial customer registration for '${newCust.name}' (Approval: ${newCust.approval_status})`,
+              ip: "127.0.0.1",
+            },
+            ...state.auditLogs,
+          ],
+        }));
+
+        return newCust;
+      },
+
+      approveCustomerRegistration: (requestIdOrCustomerId, approvedBy) => {
+        const adminName = approvedBy || get().currentSessionUser?.fullName || "Bachan Admin";
+        set((state) => {
+          const req = state.customerApprovals.find(a => a.id === requestIdOrCustomerId || a.customerId === requestIdOrCustomerId);
+          const targetCustId = req?.customerId || requestIdOrCustomerId;
+
+          return {
+            customerApprovals: state.customerApprovals.map((a) =>
+              a.id === requestIdOrCustomerId || a.customerId === requestIdOrCustomerId
+                ? { ...a, status: "approved" as const, reviewedBy: adminName, reviewedAt: getKolkataFormattedDate() }
+                : a
+            ),
+            customers: state.customers.map((c) =>
+              c.id === targetCustId
+                ? {
+                    ...c,
+                    status: "active",
+                    approval_status: "approved" as const,
+                    approved_by: adminName,
+                    approved_at: getKolkataFormattedDate(),
+                  }
+                : c
+            ),
+            auditLogs: [
+              {
+                id: `a-${Date.now()}`,
+                timestamp: getKolkataFormattedDate(),
+                user: adminName,
+                action: "approve",
+                resource: `Customer Approval ${targetCustId}`,
+                details: `Admin approved registration for customer. Status is now Active.`,
+                ip: "127.0.0.1",
+              },
+              ...state.auditLogs,
+            ],
+          };
+        });
+      },
+
+      rejectCustomerRegistration: (requestIdOrCustomerId, reason, rejectedBy) => {
+        const adminName = rejectedBy || get().currentSessionUser?.fullName || "Bachan Admin";
+        set((state) => {
+          const req = state.customerApprovals.find(a => a.id === requestIdOrCustomerId || a.customerId === requestIdOrCustomerId);
+          const targetCustId = req?.customerId || requestIdOrCustomerId;
+
+          return {
+            customerApprovals: state.customerApprovals.map((a) =>
+              a.id === requestIdOrCustomerId || a.customerId === requestIdOrCustomerId
+                ? { ...a, status: "rejected" as const, rejectionReason: reason, reviewedBy: adminName, reviewedAt: getKolkataFormattedDate() }
+                : a
+            ),
+            customers: state.customers.map((c) =>
+              c.id === targetCustId
+                ? {
+                    ...c,
+                    status: "inactive",
+                    approval_status: "rejected" as const,
+                    rejection_reason: reason,
+                  }
+                : c
+            ),
+            auditLogs: [
+              {
+                id: `a-${Date.now()}`,
+                timestamp: getKolkataFormattedDate(),
+                user: adminName,
+                action: "update",
+                resource: `Customer Rejection ${targetCustId}`,
+                details: `Admin rejected customer registration. Reason: ${reason}`,
+                ip: "127.0.0.1",
+              },
+              ...state.auditLogs,
+            ],
+          };
+        });
+      },
+
+      requestCustomerCorrection: (requestIdOrCustomerId, notes, requestedBy) => {
+        const adminName = requestedBy || get().currentSessionUser?.fullName || "Bachan Admin";
+        set((state) => {
+          const req = state.customerApprovals.find(a => a.id === requestIdOrCustomerId || a.customerId === requestIdOrCustomerId);
+          const targetCustId = req?.customerId || requestIdOrCustomerId;
+
+          return {
+            customerApprovals: state.customerApprovals.map((a) =>
+              a.id === requestIdOrCustomerId || a.customerId === requestIdOrCustomerId
+                ? { ...a, status: "correction_requested" as const, correctionNotes: notes, reviewedBy: adminName, reviewedAt: getKolkataFormattedDate() }
+                : a
+            ),
+            customers: state.customers.map((c) =>
+              c.id === targetCustId
+                ? {
+                    ...c,
+                    approval_status: "correction_requested" as const,
+                    rejection_reason: notes,
+                  }
+                : c
+            ),
+            auditLogs: [
+              {
+                id: `a-${Date.now()}`,
+                timestamp: getKolkataFormattedDate(),
+                user: adminName,
+                action: "update",
+                resource: `Customer Correction ${targetCustId}`,
+                details: `Admin requested registration correction: ${notes}`,
+                ip: "127.0.0.1",
+              },
+              ...state.auditLogs,
+            ],
+          };
+        });
+      },
+
+      // ── WAREHOUSE INVENTORY MANAGEMENT ──
+      configureOpeningStock: (productId, filledOpening, emptyOpening, configuredBy) => {
+        const adminName = configuredBy || get().currentSessionUser?.fullName || "Bachan Admin";
+        set((state) => {
+          const prod = state.products.find((p) => p.id === productId);
+          return {
+            warehouseStock: state.warehouseStock.map((ws) =>
+              ws.productId === productId
+                ? {
+                    ...ws,
+                    filledOpeningStock: filledOpening,
+                    emptyOpeningStock: emptyOpening,
+                    lastUpdated: getKolkataFormattedDate(),
+                  }
+                : ws
+            ),
+            auditLogs: [
+              {
+                id: `a-${Date.now()}`,
+                timestamp: getKolkataFormattedDate(),
+                user: adminName,
+                action: "update",
+                resource: `Warehouse Stock ${prod?.name || productId}`,
+                details: `Configured opening stock: ${filledOpening} filled cylinders, ${emptyOpening} empty cylinders`,
+                ip: "127.0.0.1",
+              },
+              ...state.auditLogs,
+            ],
+          };
+        });
+      },
+
+      recordStockReceipt: (data) => {
+        const prod = get().products.find((p) => p.id === data.productId || p.name === data.productId);
+        const pId = prod ? prod.id : data.productId;
+        const pName = prod ? prod.name : "LPG Cylinder";
+        const recordedBy = data.recordedBy || get().currentSessionUser?.fullName || (get().currentUserRole === "admin" ? "Bachan Admin" : "Staff User");
+        const movNum = `BGS-REC-${String(get().stockMovements.length + 1).padStart(5, "0")}`;
+
+        const movement: StockMovement = {
+          id: `mov-${Date.now()}`,
+          movementNum: movNum,
+          date: data.date || getKolkataDateString(),
+          productId: pId,
+          productName: pName,
+          type: "receipt",
+          qty: data.qty,
+          isEmpty: false,
+          refNum: data.refNum,
+          supplierSource: data.supplierSource || "IOCL Bottling Plant",
+          warehouseLocation: data.warehouseLocation || "Main Godown",
+          recordedBy,
+          status: "approved",
+          remarks: data.remarks,
+          createdAt: getKolkataDateString(),
+        };
+
+        set((state) => ({
+          stockMovements: [movement, ...state.stockMovements],
+          warehouseStock: state.warehouseStock.map((ws) =>
+            ws.productId === pId || ws.productName === pName
+              ? {
+                  ...ws,
+                  filledStockReceived: ws.filledStockReceived + data.qty,
+                  lastUpdated: getKolkataFormattedDate(),
+                }
+              : ws
+          ),
+          auditLogs: [
+            {
+              id: `a-${Date.now()}`,
+              timestamp: getKolkataFormattedDate(),
+              user: recordedBy,
+              action: "create",
+              resource: `Stock Receipt ${movNum}`,
+              details: `Recorded receipt of ${data.qty} filled cylinders of ${pName} from ${data.supplierSource || "IOCL Bottling Plant"}`,
+              ip: "127.0.0.1",
+            },
+            ...state.auditLogs,
+          ],
+        }));
+
+        return movement;
+      },
+
+      recordStockAdjustment: (data) => {
+        const prod = get().products.find((p) => p.id === data.productId || p.name === data.productId);
+        const pId = prod ? prod.id : data.productId;
+        const pName = prod ? prod.name : "LPG Cylinder";
+        const isAdmin = get().currentUserRole === "admin";
+        const recordedBy = data.recordedBy || get().currentSessionUser?.fullName || (isAdmin ? "Bachan Admin" : "Staff User");
+        const movNum = `BGS-ADJ-${String(get().stockMovements.length + 1).padStart(5, "0")}`;
+
+        const movement: StockMovement = {
+          id: `mov-${Date.now()}`,
+          movementNum: movNum,
+          date: data.date || getKolkataDateString(),
+          productId: pId,
+          productName: pName,
+          type: "adjustment",
+          qty: data.qty,
+          isEmpty: false,
+          remarks: data.reason,
+          recordedBy,
+          approvedBy: isAdmin ? recordedBy : undefined,
+          status: isAdmin ? "approved" : "pending_approval",
+          createdAt: getKolkataDateString(),
+        };
+
+        set((state) => {
+          let updatedStock = state.warehouseStock;
+          if (isAdmin) {
+            updatedStock = state.warehouseStock.map((ws) => {
+              if (ws.productId === pId || ws.productName === pName) {
+                const delta = data.isAddition ? data.qty : -data.qty;
+                return {
+                  ...ws,
+                  filledStockReceived: Math.max(0, ws.filledStockReceived + delta),
+                  lastUpdated: getKolkataFormattedDate(),
+                };
+              }
+              return ws;
+            });
+          }
+
+          return {
+            stockMovements: [movement, ...state.stockMovements],
+            warehouseStock: updatedStock,
+            auditLogs: [
+              {
+                id: `a-${Date.now()}`,
+                timestamp: getKolkataFormattedDate(),
+                user: recordedBy,
+                action: "update",
+                resource: `Stock Adjustment ${movNum}`,
+                details: `Stock adjustment of ${data.isAddition ? "+" : "-"}${data.qty} for ${pName}. Reason: ${data.reason}. Status: ${isAdmin ? "Approved" : "Pending Admin Approval"}`,
+                ip: "127.0.0.1",
+              },
+              ...state.auditLogs,
+            ],
+          };
+        });
+
+        return movement;
+      },
+
+      approveStockAdjustment: (id, approvedBy) => {
+        const adminName = approvedBy || get().currentSessionUser?.fullName || "Bachan Admin";
+        set((state) => {
+          const mov = state.stockMovements.find((m) => m.id === id);
+          if (!mov || mov.status === "approved") return state;
+
+          const updatedMovements = state.stockMovements.map((m) =>
+            m.id === id ? { ...m, status: "approved" as const, approvedBy: adminName, approvedAt: getKolkataFormattedDate() } : m
+          );
+
+          const updatedStock = state.warehouseStock.map((ws) => {
+            if (ws.productId === mov.productId || ws.productName === mov.productName) {
+              return {
+                ...ws,
+                filledStockReceived: ws.filledStockReceived + mov.qty,
+                lastUpdated: getKolkataFormattedDate(),
+              };
+            }
+            return ws;
+          });
+
+          return {
+            stockMovements: updatedMovements,
+            warehouseStock: updatedStock,
+            auditLogs: [
+              {
+                id: `a-${Date.now()}`,
+                timestamp: getKolkataFormattedDate(),
+                user: adminName,
+                action: "approve",
+                resource: `Stock Adjustment ${mov.movementNum}`,
+                details: `Admin approved stock adjustment of ${mov.qty} for ${mov.productName}`,
+                ip: "127.0.0.1",
+              },
+              ...state.auditLogs,
+            ],
+          };
+        });
+      },
+
+      // ── STRUCTURED PAYMENT RECEIPTS & CHEQUE TRACKING ──
+      recordStructuredPayment: (data) => {
+        const cust = get().customers.find((c) => c.id === data.customerId || c.code === data.customerId);
+        const recNum = `BGS-REC-${String(get().payments.length + 1).padStart(5, "0")}`;
+        const isCheque = data.method === "Cheque" || (data.method as string).toLowerCase() === "cheque";
+        const initialStatus: "cleared" | "pending" | "bounced" = isCheque ? "pending" : "cleared";
+        const recordedByUser = data.receivedBy || get().currentSessionUser?.fullName || (get().currentUserRole === "admin" ? "Bachan Admin" : "Staff User");
+
+        const newReceipt: PaymentReceipt = {
+          id: `pay-${Date.now()}`,
+          num: recNum,
+          receiptNum: recNum,
+          customerId: cust?.id || data.customerId,
+          customerName: cust?.name || "Customer",
+          customerCode: cust?.code || data.customerId,
+          date: data.date,
+          amount: data.amount,
+          method: data.method,
+          ref: data.ref || (isCheque ? (data.chequeDetails?.chequeNum || "") : ""),
+          remarks: data.remarks,
+          receivedBy: recordedByUser,
+          status: initialStatus,
+          chequeDetails: isCheque ? {
+            chequeNum: data.chequeDetails?.chequeNum || (data.ref || ""),
+            chequeDate: data.chequeDetails?.chequeDate || data.date,
+            bankName: data.chequeDetails?.bankName || "",
+            status: "received",
+          } : undefined,
+          upiDetails: data.upiDetails,
+          bankDetails: data.bankDetails,
+          otherDetails: data.otherDetails,
+        };
+
+        set((state) => {
+          let updatedCustomers = state.customers;
+          let updatedInvoices = state.invoices;
+          let updatedLedger = state.ledger;
+
+          if (initialStatus === "cleared" && cust) {
+            const oldOutstanding = cust.outstanding ?? 0;
+            const newOutstanding = Math.max(0, oldOutstanding - data.amount);
+
+            updatedCustomers = state.customers.map((c) =>
+              c.id === cust.id
+                ? {
+                    ...c,
+                    outstanding: newOutstanding,
+                    last_payment: data.amount,
+                    last_payment_date: data.date,
+                  }
+                : c
+            );
+
+            const ledgerEntry: LedgerEntry = {
+              id: `led-${Date.now()}`,
+              customerId: cust.id,
+              date: data.date,
+              ref: recNum,
+              type: "payment",
+              desc: `Payment Received (${data.method}${data.ref ? ` - ${data.ref}` : ""})`,
+              debit: 0,
+              credit: data.amount,
+              balance: newOutstanding,
+            };
+            updatedLedger = [ledgerEntry, ...state.ledger];
+
+            let remaining = data.amount;
+            updatedInvoices = state.invoices.map((inv) => {
+              if (inv.customerId === cust.id && inv.outstanding > 0 && remaining > 0) {
+                const payTowardsInv = Math.min(inv.outstanding, remaining);
+                remaining -= payTowardsInv;
+                const newInvOutstanding = inv.outstanding - payTowardsInv;
+                return {
+                  ...inv,
+                  paid: inv.paid + payTowardsInv,
+                  outstanding: newInvOutstanding,
+                  status: newInvOutstanding === 0 ? "paid" : "partially_paid",
+                };
+              }
+              return inv;
+            });
+          }
+
+          return {
+            payments: [newReceipt, ...state.payments],
+            customers: updatedCustomers,
+            invoices: updatedInvoices,
+            ledger: updatedLedger,
+            auditLogs: [
+              {
+                id: `a-${Date.now()}`,
+                timestamp: getKolkataFormattedDate(),
+                user: recordedByUser,
+                action: "payment",
+                resource: `Receipt ${recNum}`,
+                details: `Recorded ${data.method} payment of ₹${data.amount.toLocaleString("en-IN")} from ${cust?.name || "Customer"}. Status: ${initialStatus}`,
+                ip: "127.0.0.1",
+              },
+              ...state.auditLogs,
+            ],
+          };
+        });
+
+        return newReceipt;
+      },
+
+      updateChequeStatus: (paymentId, status, updatedBy) => {
+        const adminName = updatedBy || get().currentSessionUser?.fullName || "Bachan Admin";
+        set((state) => {
+          const pay = state.payments.find((p) => p.id === paymentId || p.num === paymentId);
+          if (!pay) return state;
+
+          const prevChequeStatus = pay.chequeDetails?.status;
+          const isBecomingCleared = status === "cleared" && prevChequeStatus !== "cleared";
+
+          let updatedCustomers = state.customers;
+          let updatedInvoices = state.invoices;
+          let updatedLedger = state.ledger;
+
+          if (isBecomingCleared) {
+            const cust = state.customers.find((c) => c.id === pay.customerId);
+            if (cust) {
+              const oldOutstanding = cust.outstanding ?? 0;
+              const newOutstanding = Math.max(0, oldOutstanding - pay.amount);
+
+              updatedCustomers = state.customers.map((c) =>
+                c.id === cust.id
+                  ? {
+                      ...c,
+                      outstanding: newOutstanding,
+                      last_payment: pay.amount,
+                      last_payment_date: getKolkataDateString(),
+                    }
+                  : c
+              );
+
+              const ledgerEntry: LedgerEntry = {
+                id: `led-${Date.now()}`,
+                customerId: cust.id,
+                date: getKolkataDateString(),
+                type: "payment",
+                ref: pay.receiptNum || pay.num,
+                desc: `Cheque Cleared: #${pay.chequeDetails?.chequeNum || ""} (${pay.chequeDetails?.bankName || ""})`,
+                debit: 0,
+                credit: pay.amount,
+                balance: newOutstanding,
+              };
+              updatedLedger = [ledgerEntry, ...state.ledger];
+
+              let remaining = pay.amount;
+              updatedInvoices = state.invoices.map((inv) => {
+                if (inv.customerId === cust.id && inv.outstanding > 0 && remaining > 0) {
+                  const payTowardsInv = Math.min(inv.outstanding, remaining);
+                  remaining -= payTowardsInv;
+                  const newInvOutstanding = inv.outstanding - payTowardsInv;
+                  return {
+                    ...inv,
+                    paid: inv.paid + payTowardsInv,
+                    outstanding: newInvOutstanding,
+                    status: newInvOutstanding === 0 ? "paid" : "partially_paid",
+                  };
+                }
+                return inv;
+              });
+            }
+          }
+
+          const updatedPayments = state.payments.map((p) =>
+            p.id === paymentId || p.num === paymentId
+              ? {
+                  ...p,
+                  status: status === "cleared" ? ("cleared" as const) : status === "bounced" ? ("bounced" as const) : ("pending" as const),
+                  clearedAt: status === "cleared" ? getKolkataFormattedDate() : undefined,
+                  clearedBy: status === "cleared" ? adminName : undefined,
+                  chequeDetails: p.chequeDetails
+                    ? {
+                        ...p.chequeDetails,
+                        status,
+                      }
+                    : undefined,
+                }
+              : p
+          );
+
+          return {
+            payments: updatedPayments,
+            customers: updatedCustomers,
+            invoices: updatedInvoices,
+            ledger: updatedLedger,
+            auditLogs: [
+              {
+                id: `a-${Date.now()}`,
+                timestamp: getKolkataFormattedDate(),
+                user: adminName,
+                action: "update",
+                resource: `Cheque Payment ${pay.receiptNum || pay.num}`,
+                details: `Updated cheque status to '${status}'. ${status === "cleared" ? "Balance settled." : ""}`,
+                ip: "127.0.0.1",
+              },
+              ...state.auditLogs,
+            ],
+          };
+        });
       },
 
       // ── RESET ──

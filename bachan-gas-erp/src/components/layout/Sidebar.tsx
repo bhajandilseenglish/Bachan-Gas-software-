@@ -7,39 +7,67 @@ import {
   Truck, Package, Receipt, CreditCard, FileText, BookOpen, BarChart2,
   TrendingUp, PieChart, Settings, UserCog, ScrollText, FileArchive,
   ChevronRight, Flame, Tag, History, Shield, LogOut, X, AlertTriangle,
-  RotateCcw, CheckSquare, Calendar, Bell
+  RotateCcw, CheckSquare, Calendar, Bell, ShieldCheck
 } from "lucide-react";
 import { useERPStore } from "@/lib/store";
 
 interface Props { collapsed: boolean; mobileOpen: boolean; onClose: () => void; }
 
+interface NavChildItem {
+  label: string;
+  href: string;
+  Icon: any;
+  badge?: string | number;
+  badgeColor?: string;
+}
+
+interface NavItem {
+  label: string;
+  href?: string;
+  Icon: any;
+  badge?: string | number;
+  badgeColor?: string;
+  children?: NavChildItem[];
+}
+
 export default function Sidebar({ collapsed, mobileOpen, onClose }: Props) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { currentUserRole, missedOrderAlerts, rateChangeRequests } = useERPStore();
+  const { currentUserRole, missedOrderAlerts, customerApprovals } = useERPStore();
   const [open, setOpen] = useState<string[]>(["Customers", "Finance", "Orders"]);
 
   const pendingAlertCount = missedOrderAlerts.filter(a => a.status === "active").length;
-  const pendingRateRequests = rateChangeRequests.filter(r => r.status === "pending").length;
+  const pendingApprovalsCount = customerApprovals.filter(a => a.status === "pending_approval").length;
 
-  const NAV = [
+  const isAdmin = currentUserRole === "admin";
+
+  const NAV: NavItem[] = [
     { label: "Dashboard", href: "/dashboard", Icon: LayoutDashboard },
     {
       label: "Customers", Icon: Users,
-      badge: pendingAlertCount > 0 ? pendingAlertCount : undefined,
+      badge: (isAdmin && pendingApprovalsCount > 0) || pendingAlertCount > 0 ? (pendingApprovalsCount + pendingAlertCount) : undefined,
       children: [
-        { label: "All Customers", href: "/customers", Icon: Users },
-        { label: "Commercial Consumers", href: "/customers?category=commercial", Icon: Building2 },
-        { label: "Domestic Consumers", href: "/customers?category=domestic", Icon: Users },
         { label: "Add Customer", href: "/customers/new", Icon: Plus },
-        { label: "Excel Import", href: "/customers/import", Icon: Upload },
+        { label: "All Customers", href: "/customers", Icon: Users },
+        ...(isAdmin
+          ? [
+              {
+                label: "Customer Approvals",
+                href: "/admin/customer-approvals",
+                Icon: ShieldCheck,
+                badge: pendingApprovalsCount > 0 ? String(pendingApprovalsCount) : undefined,
+                badgeColor: "#ea580c",
+              },
+            ]
+          : []),
         {
           label: "Missed Order Alerts",
           href: "/customers/alerts",
           Icon: AlertTriangle,
           badge: pendingAlertCount > 0 ? String(pendingAlertCount) : undefined,
-          badgeColor: "#dc2626"
+          badgeColor: "#dc2626",
         },
+        { label: "Excel Import", href: "/customers/import", Icon: Upload },
       ],
     },
     {
@@ -51,38 +79,27 @@ export default function Sidebar({ collapsed, mobileOpen, onClose }: Props) {
       ],
     },
     {
-      label: "Deliveries", Icon: Truck,
-      children: [
-        { label: "Delivery History", href: "/deliveries", Icon: Truck },
-        { label: "Empty Received", href: "/deliveries?tab=received", Icon: RotateCcw },
-        { label: "Empty Pending", href: "/deliveries?tab=pending", Icon: Package },
-      ],
+      label: "Deliveries", href: "/deliveries", Icon: Truck,
     },
     {
-      label: "Products & Rates", Icon: Tag,
-      badge: pendingRateRequests > 0 ? pendingRateRequests : undefined,
-      children: [
-        { label: "LPG Products", href: "/products", Icon: Package },
-        { label: "Basic Rate Master", href: "/products/basic-rates", Icon: Shield },
-        { label: "Customer Rates", href: "/products/rates", Icon: Tag },
-        {
-          label: "Rate Change Requests",
-          href: "/products/rates/requests",
-          Icon: Clock,
-          badge: pendingRateRequests > 0 ? String(pendingRateRequests) : undefined,
-          badgeColor: "#d97706"
-        },
-      ],
+      label: "Cylinder Returns", href: "/deliveries?tab=received", Icon: RotateCcw,
+    },
+    {
+      label: "Warehouse Inventory", href: "/inventory", Icon: Package,
     },
     {
       label: "Finance", Icon: Receipt,
       children: [
         { label: "Invoices", href: "/finance/invoices", Icon: FileText },
-        { label: "Payments", href: "/finance/payments", Icon: CreditCard },
-        { label: "Outstanding", href: "/finance/outstanding", Icon: Receipt },
+        { label: "Payment Receipts", href: "/finance/payments", Icon: CreditCard },
         { label: "Customer Ledger", href: "/finance/ledger", Icon: BookOpen },
-        { label: "Credit Limits", href: "/finance/credit", Icon: Shield },
-        { label: "Payment Tenure", href: "/finance/tenure", Icon: Calendar },
+        ...(isAdmin
+          ? [
+              { label: "Outstanding Receivables", href: "/finance/outstanding", Icon: Receipt },
+              { label: "Credit Limits", href: "/finance/credit", Icon: Shield },
+              { label: "Payment Tenure", href: "/finance/tenure", Icon: Calendar },
+            ]
+          : []),
       ],
     },
     {
@@ -94,22 +111,18 @@ export default function Sidebar({ collapsed, mobileOpen, onClose }: Props) {
         { label: "Inactivity & Retention", href: "/reports/inactivity", Icon: AlertTriangle },
       ],
     },
-    // Administration is available to Admin
-    ...(currentUserRole === "admin"
+    // Master Settings is available to Admin
+    ...(isAdmin
       ? [
           {
-            label: "Administration", Icon: Settings,
+            label: "Master Settings", Icon: Settings,
             children: [
-              { label: "Staff Management", href: "/admin/users", Icon: UserCog },
-              {
-                label: "Rate Approvals",
-                href: "/admin/rate-approvals",
-                Icon: CheckSquare,
-                badge: pendingRateRequests > 0 ? String(pendingRateRequests) : undefined,
-                badgeColor: "#f97316"
-              },
-              { label: "Audit Logs", href: "/admin/audit", Icon: ScrollText },
-              { label: "Settings", href: "/settings", Icon: Settings },
+              { label: "Basic Rates", href: "/products/basic-rates", Icon: Shield },
+              { label: "Customer Rates", href: "/products/rates", Icon: Tag },
+              { label: "Product Master", href: "/products", Icon: Package },
+              { label: "Employees", href: "/admin/users", Icon: UserCog },
+              { label: "Audit Log", href: "/admin/audit", Icon: ScrollText },
+              { label: "Agency Settings", href: "/settings", Icon: Settings },
             ],
           },
         ]

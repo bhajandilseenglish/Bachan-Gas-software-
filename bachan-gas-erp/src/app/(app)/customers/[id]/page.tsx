@@ -404,20 +404,20 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
 
           {/* Card 2: Total Outstanding */}
           <div style={{ background: "#fff", padding: "11px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Total Udhaar (Due)</div>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Total Outstanding</div>
             <div style={{ fontSize: 17, fontWeight: 900, color: currentOutstanding > 0 ? "#dc2626" : "#16a34a", marginTop: 2 }}>
               {INR(c.outstanding)}
             </div>
-            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Pending bill balance</div>
+            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Pending invoice balance</div>
           </div>
 
-          {/* Card 3: Advance Balance */}
+          {/* Card 3: Advance Payment Balance */}
           <div style={{ background: "#fff", padding: "11px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Advance (Jama)</div>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Advance Payment Balance</div>
             <div style={{ fontSize: 17, fontWeight: 900, color: (c.advance_balance || 0) > 0 ? "#7c3aed" : "#64748b", marginTop: 2 }}>
               {INR(c.advance_balance || 0)}
             </div>
-            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Prepaid unallocated</div>
+            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Prepaid unallocated balance</div>
           </div>
 
           {/* Card 4: Credit Limit */}
@@ -426,7 +426,7 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
             <div style={{ fontSize: 16, fontWeight: 800, color: "#1e293b", marginTop: 2 }}>
               {c.credit_limit !== null ? INR(c.credit_limit) : "Not Configured"}
             </div>
-            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Max allowed credit</div>
+            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Maximum approved credit</div>
           </div>
 
           {/* Card 5: Available Credit */}
@@ -435,25 +435,25 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
             <div style={{ fontSize: 16, fontWeight: 800, color: availableCredit !== null && availableCredit < 0 ? "#dc2626" : "#16a34a", marginTop: 2 }}>
               {availableCredit !== null ? INR(availableCredit) : "Not Configured"}
             </div>
-            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Remaining credit</div>
+            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Remaining credit limit</div>
           </div>
 
           {/* Card 6: Payment Tenure */}
           <div style={{ background: "#fff", padding: "11px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Credit Days</div>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Payment Tenure</div>
             <div style={{ fontSize: 16, fontWeight: 800, color: "#1e3a8a", marginTop: 2 }}>
               {c.payment_tenure_days || 15} Days
             </div>
-            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Allowed payment tenure</div>
+            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Approved credit duration</div>
           </div>
 
-          {/* Card 7: Empty Cylinders Pending */}
+          {/* Card 7: Empty Cylinders Outstanding */}
           <div style={{ background: "#fff", padding: "11px 14px", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Khali Cylinders Baaki</div>
+            <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>Empty Cylinders Outstanding</div>
             <div style={{ fontSize: 16, fontWeight: 900, color: (c.empty_cylinders_pending || 0) > 0 ? "#dc2626" : "#16a34a", marginTop: 2 }}>
               {c.empty_cylinders_pending || 0} units
             </div>
-            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Pending return with customer</div>
+            <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 2 }}>Pending cylinder return</div>
           </div>
 
           {/* Card 8: Last Order Date */}
