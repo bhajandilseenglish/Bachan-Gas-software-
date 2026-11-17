@@ -7,7 +7,7 @@ import {
   CreditCard, Truck, History, BookOpen, AlertCircle, CheckCircle,
   Receipt, ArrowUpRight, ArrowDownLeft, Download, Eye, ChevronRight,
   Printer, X, Check, RotateCcw, AlertTriangle, ShieldCheck, ShieldAlert,
-  Clock, Calendar, UserCheck, MessageSquare, Shield, Tag, TrendingUp
+  Clock, Calendar, UserCheck, MessageSquare, Shield, Tag, TrendingUp, Wallet
 } from "lucide-react";
 import {
   useERPStore,
@@ -54,6 +54,9 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
     customerRates,
     cylinderExchangeLedger,
     payments,
+    invoices,
+    customerAdvances,
+    advanceAllocations,
     ledger,
     products,
     missedOrderAlerts,
@@ -126,6 +129,9 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
   // Linked records
   const custOrders = orders.filter(o => o.customerId === c.id);
   const custDeliveries = deliveries.filter(d => d.customerId === c.id);
+  const custInvoices = invoices.filter(inv => inv.customerId === c.id || inv.customerCode === c.code);
+  const custAdvances = (customerAdvances || []).filter(a => a.customerId === c.id || a.customerCode === c.code);
+  const custAllocations = (advanceAllocations || []).filter(al => al.customerId === c.id);
   const custRates = customerRates.filter(r => r.customerId === c.id);
   const custExchange = cylinderExchangeLedger.filter(e => e.customerId === c.id);
   const custPayments = payments.filter(p => p.customerId === c.id);
@@ -145,11 +151,13 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
   // Inactivity status
   const isMissedOrder = c.missed_order_alert_active || !!custAlert;
 
-  // 11 Tabs specified by user (Requirement #15)
+  // Tabs
   const TABS = [
     { id: "overview", label: "Overview", Icon: Building2 },
     { id: "orders", label: `Orders (${custOrders.length})`, Icon: FileText },
     { id: "deliveries", label: `Deliveries (${custDeliveries.length})`, Icon: Truck },
+    { id: "invoices", label: `Invoices (${custInvoices.length})`, Icon: FileText },
+    { id: "advances", label: `Prepaid Advances (${custAdvances.length})`, Icon: Wallet },
     { id: "empty_cylinders", label: `Empty Returns (${c.empty_cylinders_pending || 0})`, Icon: RotateCcw, badge: (c.empty_cylinders_pending || 0) > 0 ? c.empty_cylinders_pending : undefined },
     { id: "rates", label: `Customer Rates (${custRates.length})`, Icon: Receipt },
     { id: "payments", label: `Payments (${custPayments.length})`, Icon: CreditCard },
@@ -696,6 +704,146 @@ export default function CustomerProfilePage({ params }: { params: Promise<{ id: 
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* ── TAB: INVOICES ── */}
+      {activeTab === "invoices" && (
+        <div style={{ ...card(), overflow: "hidden" }}>
+          <div style={{ padding: "14px 18px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontWeight: 800, fontSize: 14, color: "#1e293b" }}>Tax Invoices ({custInvoices.length})</span>
+            <span style={{ fontSize: 12, color: "#64748b" }}>
+              Total Billed: {INR(custInvoices.reduce((s, i) => s + i.total, 0))}
+            </span>
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0" }}>
+                {["Invoice #", "Date", "Order Ref", "Subtotal", "GST 18%", "Invoice Total", "Advance Applied", "Outstanding", "Status"].map(h => (
+                  <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {custInvoices.length === 0 ? (
+                <tr>
+                  <td colSpan={9} style={{ padding: 40, textAlign: "center", color: "#64748b", fontSize: 13 }}>
+                    No tax invoices generated for this customer yet.
+                  </td>
+                </tr>
+              ) : (
+                custInvoices.map(inv => (
+                  <tr key={inv.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <td style={{ padding: "12px 16px", fontFamily: "monospace", fontWeight: 700, color: "#1e3a8a" }}>
+                      {inv.num}
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 12.5, color: "#64748b" }}>{inv.date}</td>
+                    <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: 12, color: "#0f766e" }}>
+                      {inv.orderNum ? (
+                        <Link href={`/orders/${inv.orderId}`} style={{ color: "#0f766e", textDecoration: "none" }}>{inv.orderNum}</Link>
+                      ) : "—"}
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 13 }}>₹{(inv.subtotal || inv.taxableAmount || 0).toLocaleString("en-IN")}</td>
+                    <td style={{ padding: "12px 16px", fontSize: 13, color: "#f97316" }}>₹{(inv.taxAmt || inv.taxAmount || 0).toLocaleString("en-IN")}</td>
+                    <td style={{ padding: "12px 16px", fontSize: 13.5, fontWeight: 800, color: "#1e293b" }}>₹{inv.total.toLocaleString("en-IN")}</td>
+                    <td style={{ padding: "12px 16px", fontSize: 13, color: "#7c3aed", fontWeight: 700 }}>
+                      ₹{(inv.advanceApplied || 0).toLocaleString("en-IN")}
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 13.5, fontWeight: 800, color: (inv.outstanding || 0) > 0 ? "#dc2626" : "#16a34a" }}>
+                      ₹{(inv.outstanding || 0).toLocaleString("en-IN")}
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <span style={{
+                        padding: "3px 9px", borderRadius: 100, fontSize: 10.5, fontWeight: 700,
+                        background: inv.status === "paid" ? "#dcfce7" : inv.status === "partially_paid" ? "#fef3c7" : "#fee2e2",
+                        color: inv.status === "paid" ? "#15803d" : inv.status === "partially_paid" ? "#92400e" : "#991b1b",
+                        textTransform: "uppercase"
+                      }}>
+                        {inv.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ── TAB: PREPAID ADVANCES & CARRY FORWARD ── */}
+      {activeTab === "advances" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ ...card(), padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Wallet size={18} color="#059669" />
+                <h3 style={{ fontSize: 15, fontWeight: 800, color: "#1e293b", margin: 0 }}>
+                  Prepaid Customer Advances & Carry-Forward
+                </h3>
+              </div>
+              <p style={{ fontSize: 12.5, color: "#64748b", margin: "2px 0 0" }}>
+                Unallocated advance balance is carried forward across billing periods and kept distinct from the credit limit.
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#64748b" }}>Current Prepaid Balance:</span>
+              <span style={{ fontSize: 18, fontWeight: 900, color: "#059669" }}>{INR(c.advance_balance || 0)}</span>
+              <Link
+                href="/finance/advances"
+                style={{ padding: "6px 12px", borderRadius: 6, background: "#059669", color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none" }}
+              >
+                + Record Advance
+              </Link>
+            </div>
+          </div>
+
+          <div style={{ ...card(), overflow: "hidden" }}>
+            <div style={{ padding: "12px 18px", borderBottom: "1px solid #e2e8f0", fontWeight: 700, fontSize: 13, color: "#1e293b" }}>
+              Advance Receipt Vouchers ({custAdvances.length})
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0" }}>
+                  {["Voucher #", "Date", "Original Amount", "Amount Allocated", "Remaining Carried Forward", "Payment Mode", "Ref / UTR", "Status"].map(h => (
+                    <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", color: "#64748b" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {custAdvances.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ padding: 40, textAlign: "center", color: "#64748b", fontSize: 13 }}>
+                      No advance payment vouchers recorded for this customer yet.
+                    </td>
+                  </tr>
+                ) : (
+                  custAdvances.map(a => (
+                    <tr key={a.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={{ padding: "12px 16px", fontFamily: "monospace", fontWeight: 700, color: "#1e3a8a" }}>{a.advanceReceiptNum || a.advanceNum}</td>
+                      <td style={{ padding: "12px 16px", fontSize: 12.5, color: "#64748b" }}>{a.receiptDate || a.date}</td>
+                      <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700 }}>₹{(a.amountReceived || a.amount || 0).toLocaleString("en-IN")}</td>
+                      <td style={{ padding: "12px 16px", fontSize: 13, color: "#7c3aed" }}>₹{(a.amountApplied || a.allocatedAmount || 0).toLocaleString("en-IN")}</td>
+                      <td style={{ padding: "12px 16px", fontSize: 13.5, fontWeight: 800, color: a.remainingAdvance > 0 ? "#059669" : "#94a3b8" }}>
+                        ₹{a.remainingAdvance.toLocaleString("en-IN")}
+                      </td>
+                      <td style={{ padding: "12px 16px", fontSize: 12.5 }}>{a.paymentMethod || a.paymentMode}</td>
+                      <td style={{ padding: "12px 16px", fontSize: 12, fontFamily: "monospace", color: "#64748b" }}>{a.referenceNum || a.reference || "—"}</td>
+                      <td style={{ padding: "12px 16px" }}>
+                        <span style={{
+                          padding: "3px 9px", borderRadius: 100, fontSize: 10.5, fontWeight: 700,
+                          background: a.status === "fully_applied" ? "#f1f5f9" : a.remainingAdvance < (a.amountReceived || a.amount) ? "#fef3c7" : "#dcfce7",
+                          color: a.status === "fully_applied" ? "#475569" : a.remainingAdvance < (a.amountReceived || a.amount) ? "#92400e" : "#15803d",
+                          textTransform: "uppercase"
+                        }}>
+                          {a.status === "fully_applied" ? "Fully Applied" : a.remainingAdvance < (a.amountReceived || a.amount) ? "Partially Applied" : "Available"}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

@@ -381,16 +381,9 @@ function NewOrderForm() {
               <Plus size={14} /> Authorize Customer Rate
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={() => router.push("/products/rates/requests")}
-              style={{
-                padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700,
-                background: "#1e3a8a", color: "#fff", border: "none", cursor: "pointer"
-              }}
-            >
-              Request Rate Change
-            </button>
+            <span style={{ fontSize: 12, color: "#92400e", fontWeight: 600 }}>
+              Contact Administrator to configure approved pricing.
+            </span>
           )}
         </div>
       )}
@@ -477,10 +470,10 @@ function NewOrderForm() {
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1.2fr 1.2fr", gap: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1.2fr 1.2fr", gap: 14 }}>
               <div>
                 <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 5 }}>
-                  Basic Rate (₹ per Cylinder / Unit) *
+                  Basic Rate (₹ / Unit) *
                 </label>
                 <input
                   type="number"
@@ -494,13 +487,25 @@ function NewOrderForm() {
                   }}
                 />
                 <span style={{ fontSize: 11, color: "#64748b", marginTop: 3, display: "block" }}>
-                  GST 18% exclusive basic rate
+                  GST 18% exclusive basic
                 </span>
               </div>
 
               <div>
                 <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 5 }}>
-                  Taxable Subtotal (Basic Amount)
+                  Calculated Rate / KG
+                </label>
+                <div style={{ width: "100%", padding: "9px 12px", border: "1.5px solid #cbd5e1", borderRadius: 8, fontSize: 13.5, fontWeight: 800, background: "#f1f5f9", color: "#0f172a" }}>
+                  ₹{(prod?.referenceWeightKg && rate > 0 ? (rate / prod.referenceWeightKg).toFixed(2) : "0.00")} / kg
+                </div>
+                <span style={{ fontSize: 11, color: "#64748b", marginTop: 3, display: "block" }}>
+                  Ref: {prod?.referenceWeightKg || 19.0} kg
+                </span>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 5 }}>
+                  Taxable Subtotal
                 </label>
                 <div style={{ width: "100%", padding: "9px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 14, fontWeight: 800, background: "#f8fafc", color: "#1e293b" }}>
                   ₹{subtotal.toLocaleString("en-IN")}

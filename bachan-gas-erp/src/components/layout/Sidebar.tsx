@@ -7,7 +7,7 @@ import {
   Truck, Package, Receipt, CreditCard, FileText, BookOpen, BarChart2,
   TrendingUp, PieChart, Settings, UserCog, ScrollText, FileArchive,
   ChevronRight, Flame, Tag, History, Shield, LogOut, X, AlertTriangle,
-  RotateCcw, CheckSquare, Calendar, Bell, ShieldCheck
+  RotateCcw, CheckSquare, Calendar, Bell, ShieldCheck, Wallet
 } from "lucide-react";
 import { useERPStore } from "@/lib/store";
 
@@ -92,6 +92,7 @@ export default function Sidebar({ collapsed, mobileOpen, onClose }: Props) {
       children: [
         { label: "Invoices", href: "/finance/invoices", Icon: FileText },
         { label: "Payment Receipts", href: "/finance/payments", Icon: CreditCard },
+        { label: "Customer Advances", href: "/finance/advances", Icon: Wallet },
         { label: "Customer Ledger", href: "/finance/ledger", Icon: BookOpen },
         ...(isAdmin
           ? [

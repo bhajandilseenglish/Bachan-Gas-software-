@@ -130,7 +130,10 @@ export interface Customer {
   payment_tenure_days: number | null; // e.g. 7, 15, 30, or null if not yet agreed
   payment_terms: string;
   outstanding: number | null;
+  outstanding_balance?: number; // alias
   advance_balance?: number; // Unallocated customer advance balance
+  total_advances_received?: number;
+  advances_applied?: number;
   overdue: number | null;
   last_payment: number | null;
   last_payment_date: string;
@@ -322,6 +325,10 @@ export interface RateChangeRequest {
 export interface CylinderExchangeRecord {
   id: string;
   exchangeNum: string;
+  num?: string; // alias
+  date?: string; // alias
+  orderId?: string;
+  orderNum?: string;
   customerId: string;
   customerName: string;
   customerCode: string;
@@ -337,6 +344,69 @@ export interface CylinderExchangeRecord {
   recordedBy: string;
   remarks?: string;
   createdAt: string;
+}
+
+export interface CustomerAdvance {
+  id: string;
+  advanceReceiptNum: string; // e.g. BGS-ADV-2026-000001
+  advanceNum?: string; // alias
+  customerId: string;
+  customerName: string;
+  customerCode: string;
+  receiptDate: string;
+  date?: string; // alias
+  amountReceived: number;
+  amount: number; // alias
+  amountApplied: number;
+  allocatedAmount?: number; // alias
+  remainingAdvance: number;
+  paymentMethod: PaymentMethod;
+  paymentMode?: string; // alias
+  referenceNum?: string;
+  reference?: string; // alias
+  recordedBy: string;
+  remarks?: string;
+  status: "active" | "fully_applied" | "refunded" | "available" | "partially_allocated" | "consumed";
+  createdAt: string;
+}
+
+export interface AdvanceAllocation {
+  id: string;
+  advanceId: string;
+  advanceReceiptNum: string;
+  advanceNum?: string; // alias
+  customerId: string;
+  customerName?: string; // alias
+  invoiceId: string;
+  invoiceNum: string;
+  orderId?: string;
+  orderNum?: string;
+  allocatedAmount: number;
+  allocatedDate: string;
+  date?: string; // alias
+  allocatedBy: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface StockReconciliationRecord {
+  id: string;
+  reconciliationNum: string; // e.g. BGS-RECON-2026-00001
+  warehouseLocation: string;
+  productId: string;
+  productName: string;
+  monthPeriod: string; // e.g. '2026-11'
+  isEmpty: boolean;
+  systemClosingQty: number;
+  physicalCount: number;
+  quantityDifference: number; // physicalCount - systemClosingQty
+  reason: string;
+  status: "pending_approval" | "approved" | "rejected";
+  countedBy: string;
+  countedAt: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  adjustmentMovementId?: string;
 }
 
 export interface MissedOrderAlert {
@@ -381,6 +451,8 @@ export interface OrderItem {
   productCode: string;
   qty: number;
   unitRate: number; // Basic rate per cylinder (GST exclusive)
+  referenceWeightKg?: number; // Verified reference weight in KG
+  calculatedRatePerKg?: number; // Basic rate / referenceWeightKg
   subtotal: number; // qty * unitRate (Taxable value)
   taxPct: number;   // 18%
   cgstPct: number;
@@ -395,7 +467,7 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
-  num: string;
+  num: string; // e.g. BGS-ORD-2026-000001
   customerId: string;
   customerName: string;
   customerCode: string;
@@ -407,6 +479,8 @@ export interface Order {
   qtyIssued?: number;
   emptyReceivedOnOrder?: number;
   emptyPendingSnapshot?: number;
+  referenceWeightKg?: number;
+  calculatedRatePerKg?: number;
   subtotal: number;  // Taxable amount
   cgstAmount: number;
   sgstAmount: number;
@@ -414,6 +488,10 @@ export interface Order {
   taxAmt: number;    // Total 18% GST
   total: number;     // Grand Total
   status: "draft" | "confirmed" | "approved" | "pending_dispatch" | "partially_delivered" | "delivered" | "cancelled";
+  deliveryId?: string;
+  invoiceId?: string;
+  paymentStatus?: "unpaid" | "partially_paid" | "paid";
+  paidAmount?: number;
   vehicle?: string;
   driver?: string;
   remarks?: string;
@@ -474,9 +552,13 @@ export interface Invoice {
   sgstAmount: number;
   igstAmount: number;
   taxAmount: number;
+  subtotal?: number; // alias to taxableAmount
+  taxAmt?: number; // alias to taxAmount
   total: number;
   paid: number;
+  paidAmount?: number; // alias to paid
   outstanding: number;
+  advanceApplied?: number;
   status: "draft" | "posted" | "partially_paid" | "paid" | "overdue" | "cancelled";
 }
 
@@ -487,6 +569,10 @@ export interface PaymentReceipt {
   customerId: string;
   customerName: string;
   customerCode: string;
+  orderId?: string;
+  orderNum?: string;
+  invoiceId?: string;
+  isAdvance?: boolean;
   date: string;
   amount: number;
   method: PaymentMethod;
@@ -879,7 +965,7 @@ interface ERPStore {
 
   // Delivery Actions
   createDelivery: (data: { orderId: string; vehicle: string; driver: string; emptyReceived?: number }) => Delivery;
-  confirmDelivery: (deliveryId: string, emptyReceivedOnDelivery?: number) => void;
+  confirmDelivery: (deliveryId: string, emptyReceivedOnDelivery?: any) => void;
 
   // Invoicing & Financial Actions (18% GST breakdown)
   postInvoice: (invoiceData: { orderId: string; dueDate?: string }) => Invoice;
@@ -909,6 +995,53 @@ interface ERPStore {
   // Opening Balance Actions
   setCustomerOpeningBalance: (customerId: string, balance: number, balanceType: "debit" | "credit", asOfDate?: string) => void;
   bulkImportOpeningBalances: (records: Array<{ customerCodeOrId: string; balance: number; balanceType: "debit" | "credit"; asOfDate?: string }>) => { imported: number; failed: number };
+
+  // Customer Advances & Carry Forward
+  customerAdvances: CustomerAdvance[];
+  advanceAllocations: AdvanceAllocation[];
+  recordCustomerAdvance: (data: any) => any;
+  allocateAdvanceToInvoice: (advanceIdOrObj: any, maybeInvoiceId?: string, maybeAmount?: number) => any;
+
+  // Monthly Stock Registers & Reconciliation
+  stockReconciliations: StockReconciliationRecord[];
+  recordStockReconciliation: (data: {
+    warehouseLocation?: string;
+    productId: string;
+    monthPeriod: string;
+    isEmpty: boolean;
+    physicalCount: number;
+    reason: string;
+    countedBy?: string;
+  }) => StockReconciliationRecord;
+  approveStockReconciliation: (reconId: string, approvedBy?: string) => void;
+  getDailyStockRegister: (productId: string, monthPeriod: string) => Array<{
+    date: string;
+    openingFilled: number;
+    receivedFilled: number;
+    issuedFilled: number;
+    adjFilled: number;
+    closingFilled: number;
+    openingEmpty: number;
+    receivedEmpty: number;
+    issuedEmpty: number;
+    adjEmpty: number;
+    closingEmpty: number;
+  }>;
+  getMonthlyStockRegister: (productId: string, year?: number) => Array<{
+    monthPeriod: string;
+    monthName: string;
+    openingFilled: number;
+    receivedFilled: number;
+    issuedFilled: number;
+    returnsEmpty: number;
+    adjFilled: number;
+    closingFilled: number;
+    openingEmpty: number;
+    receivedEmpty: number;
+    issuedEmpty: number;
+    adjEmpty: number;
+    closingEmpty: number;
+  }>;
 
   // Import Actions
   recordImportBatch: (batch: Omit<ImportBatch, "id">) => void;
@@ -946,6 +1079,9 @@ export const useERPStore = create<ERPStore>()(
       deliveries: [],
       invoices: [],
       payments: [],
+      customerAdvances: [],
+      advanceAllocations: [],
+      stockReconciliations: [],
       ledger: [],
       auditLogs: INITIAL_AUDIT_LOGS,
       importBatches: INITIAL_IMPORT_BATCHES,
@@ -1734,10 +1870,14 @@ export const useERPStore = create<ERPStore>()(
         const taxAmt = cgstAmt + sgstAmt + igstAmt; // 18% Total GST
         const total = subtotal + taxAmt;
 
+        const year = new Date().getFullYear();
         const nextNum = get().orders.length + 1;
-        const num = `BGS-ORD-${String(nextNum).padStart(5, "0")}`;
+        const num = `BGS-ORD-${year}-${String(nextNum).padStart(6, "0")}`;
         const orderDateStr = getKolkataFormattedDate();
         const orderDateISO = getKolkataDateString();
+
+        const refWeight = prod.referenceWeightKg || 19.0;
+        const calculatedRatePerKg = refWeight > 0 ? Math.round((finalBasicRate / refWeight) * 100) / 100 : 0;
 
         const newOrder: Order = {
           id: String(Date.now()),
@@ -1751,6 +1891,10 @@ export const useERPStore = create<ERPStore>()(
           qtyIssued: qtyIssued || 0,
           emptyReceivedOnOrder: emptyReceivedOnOrder || 0,
           emptyPendingSnapshot: customer.empty_cylinders_pending || 0,
+          referenceWeightKg: refWeight,
+          calculatedRatePerKg,
+          paymentStatus: "unpaid",
+          paidAmount: 0,
           items: [
             {
               productId: prod.id,
@@ -1758,6 +1902,8 @@ export const useERPStore = create<ERPStore>()(
               productCode: prod.code,
               qty,
               unitRate: finalBasicRate,
+              referenceWeightKg: refWeight,
+              calculatedRatePerKg,
               subtotal,
               taxPct: 18,
               cgstPct,
@@ -1886,13 +2032,15 @@ export const useERPStore = create<ERPStore>()(
         return newDelivery;
       },
 
-      confirmDelivery: (deliveryId, emptyReceivedOnDelivery = 0) => {
+      confirmDelivery: (deliveryId, emptyReceivedOnDelivery: any = 0) => {
         const delivery = get().deliveries.find((d) => d.id === deliveryId || d.num === deliveryId);
         if (!delivery) return;
 
         const customer = get().customers.find((c) => c.id === delivery.customerId);
         const filledDelivered = delivery.qty;
-        const empties = emptyReceivedOnDelivery || delivery.emptyReceivedOnDelivery || 0;
+        const empties = typeof emptyReceivedOnDelivery === "object"
+          ? (emptyReceivedOnDelivery.emptyReceived || 0)
+          : (emptyReceivedOnDelivery || delivery.emptyReceivedOnDelivery || 0);
 
         const oldPending = customer?.empty_cylinders_pending || 0;
         const newPending = Math.max(0, oldPending + filledDelivered - empties);
@@ -1904,6 +2052,10 @@ export const useERPStore = create<ERPStore>()(
         const exchangeRecord: CylinderExchangeRecord = {
           id: `exc-${Date.now()}`,
           exchangeNum,
+          num: exchangeNum,
+          date: delivery.date || getKolkataDateString(),
+          orderId: delivery.orderId,
+          orderNum: delivery.orderNum,
           customerId: delivery.customerId,
           customerName: delivery.customerName,
           customerCode: delivery.customerCode,
@@ -1916,7 +2068,9 @@ export const useERPStore = create<ERPStore>()(
           returnDate: getKolkataDateString(),
           refNum: delivery.num,
           recordedBy: get().currentUserRole === "admin" ? "Bachan Admin" : "Staff User",
-          remarks: `Delivery supply: ${filledDelivered} filled delivered, ${empties} empties returned`,
+          remarks: typeof emptyReceivedOnDelivery === "object" && emptyReceivedOnDelivery.notes
+            ? emptyReceivedOnDelivery.notes
+            : `Delivery supply: ${filledDelivered} filled delivered, ${empties} empties returned`,
           createdAt: getKolkataDateString(),
         };
 
@@ -1969,7 +2123,15 @@ export const useERPStore = create<ERPStore>()(
             d.id === delivery.id ? { ...d, status: "delivered" } : d
           ),
           orders: state.orders.map((o) =>
-            o.id === delivery.orderId ? { ...o, status: "delivered" } : o
+            o.id === delivery.orderId
+              ? {
+                  ...o,
+                  status: "delivered",
+                  deliveryId: delivery.id,
+                  qtyIssued: filledDelivered,
+                  emptyReceivedOnOrder: empties,
+                }
+              : o
           ),
           cylinderExchangeLedger: [exchangeRecord, ...state.cylinderExchangeLedger],
           stockMovements: [...newStockMovements, ...state.stockMovements],
@@ -2100,6 +2262,7 @@ export const useERPStore = create<ERPStore>()(
 
         set((state) => ({
           invoices: [newInvoice, ...state.invoices],
+          orders: state.orders.map((o) => (o.id === order.id ? { ...o, invoiceId: newInvoice.id } : o)),
           ledger: [...state.ledger, ledgerEntry],
           customers: state.customers.map((c) =>
             c.id === order.customerId
@@ -2229,6 +2392,269 @@ export const useERPStore = create<ERPStore>()(
 
       recordAdvancePayment: (data) => {
         return get().recordPayment({ ...data, isAdvance: true });
+      },
+
+      // ── CUSTOMER ADVANCES & CARRY FORWARD ──
+      recordCustomerAdvance: (advData: any) => {
+        const cust = get().customers.find((c) => c.id === advData.customerId || c.code === advData.customerId);
+        if (!cust) throw new Error("Customer not found.");
+        const amount = advData.amount || advData.amountReceived || 0;
+        if (amount <= 0) throw new Error("Advance amount must be greater than zero.");
+
+        const paymentMethod = advData.paymentMethod || advData.paymentMode || "Bank Transfer";
+        const year = new Date().getFullYear();
+        const nextNum = (get().customerAdvances?.length || 0) + 1;
+        const advanceReceiptNum = `BGS-ADV-${year}-${String(nextNum).padStart(6, "0")}`;
+        const dateStr = advData.date || advData.receiptDate || getKolkataFormattedDate();
+
+        const newAdvance: CustomerAdvance = {
+          id: `adv-${Date.now()}`,
+          advanceReceiptNum,
+          advanceNum: advanceReceiptNum,
+          customerId: cust.id,
+          customerName: cust.name,
+          customerCode: cust.code,
+          receiptDate: dateStr,
+          date: dateStr,
+          amountReceived: amount,
+          amount,
+          amountApplied: 0,
+          allocatedAmount: 0,
+          remainingAdvance: amount,
+          paymentMethod,
+          paymentMode: paymentMethod,
+          referenceNum: advData.reference || advData.ref || `REF-${Date.now().toString().slice(-6)}`,
+          reference: advData.reference || advData.ref,
+          recordedBy: advData.recordedBy || (get().currentUserRole === "admin" ? "Bachan Admin" : "Staff User"),
+          remarks: advData.remarks || "Commercial Customer Advance Payment",
+          status: "active",
+          createdAt: getKolkataDateString(),
+        };
+
+        const currentAdvance = cust.advance_balance || 0;
+        const newAdvanceBal = currentAdvance + amount;
+
+        // Ledger Entry: Advance Receipt Credit
+        const ledgerEntry: LedgerEntry = {
+          id: `led-adv-${Date.now()}`,
+          customerId: cust.id,
+          date: dateStr,
+          ref: advanceReceiptNum,
+          type: "Customer Advance",
+          desc: `Customer advance received via ${paymentMethod} (Ref: ${newAdvance.referenceNum}) - Carried forward`,
+          debit: 0,
+          credit: amount,
+          balance: (cust.outstanding || 0) - amount,
+        };
+
+        // Also record a payment receipt for audit
+        const nextPayNum = get().payments.length + 1;
+        const payNum = `BGS-PAY-${String(nextPayNum).padStart(5, "0")}`;
+        const paymentRecord: PaymentReceipt = {
+          id: `pay-${Date.now()}`,
+          num: payNum,
+          receiptNum: advanceReceiptNum,
+          customerId: cust.id,
+          customerName: cust.name,
+          customerCode: cust.code,
+          isAdvance: true,
+          date: dateStr,
+          amount,
+          method: paymentMethod,
+          ref: newAdvance.referenceNum || payNum,
+          remarks: `Advance Receipt ${advanceReceiptNum}`,
+          receivedBy: newAdvance.recordedBy,
+          status: "cleared",
+        };
+
+        set((state) => ({
+          customerAdvances: [newAdvance, ...(state.customerAdvances || [])],
+          payments: [paymentRecord, ...state.payments],
+          ledger: [...state.ledger, ledgerEntry],
+          customers: state.customers.map((c) =>
+            c.id === cust.id
+              ? {
+                  ...c,
+                  advance_balance: newAdvanceBal,
+                  total_advances_received: (c.total_advances_received || 0) + amount,
+                  last_payment: amount,
+                  last_payment_date: dateStr,
+                  is_financial_configured: true,
+                }
+              : c
+          ),
+          auditLogs: [
+            {
+              id: `a-${Date.now()}`,
+              timestamp: dateStr,
+              user: newAdvance.recordedBy,
+              action: "create",
+              resource: `Advance ${advanceReceiptNum}`,
+              details: `Recorded customer advance of ₹${amount.toLocaleString("en-IN")} for ${cust.name} via ${paymentMethod}. New advance balance: ₹${newAdvanceBal.toLocaleString("en-IN")}`,
+              ip: "127.0.0.1",
+            },
+            ...state.auditLogs,
+          ],
+        }));
+
+        return { ...newAdvance, success: true, message: `Recorded customer advance of ₹${amount.toLocaleString("en-IN")}` };
+      },
+
+      allocateAdvanceToInvoice: (advanceIdOrObj: any, maybeInvoiceId?: string, maybeAmount?: number) => {
+        let advanceId: string;
+        let invoiceId: string;
+        let amount: number;
+        let notes: string | undefined;
+        let allocatedBy: string | undefined;
+
+        if (typeof advanceIdOrObj === "object") {
+          advanceId = advanceIdOrObj.advanceId;
+          invoiceId = advanceIdOrObj.invoiceId;
+          amount = advanceIdOrObj.amount;
+          notes = advanceIdOrObj.notes;
+          allocatedBy = advanceIdOrObj.allocatedBy;
+        } else {
+          advanceId = advanceIdOrObj;
+          invoiceId = maybeInvoiceId!;
+          amount = maybeAmount!;
+        }
+
+        const advance = (get().customerAdvances || []).find((a) => a.id === advanceId || a.advanceReceiptNum === advanceId || a.advanceNum === advanceId);
+        if (!advance) return { success: false, message: "Customer advance record not found." };
+        if (advance.status !== "active" && (advance.status as string) !== "available" && (advance.status as string) !== "partially_allocated") {
+          return { success: false, message: "This advance is no longer active for allocation." };
+        }
+        if (amount <= 0) return { success: false, message: "Allocation amount must be greater than zero." };
+        if (amount > advance.remainingAdvance) {
+          return { success: false, message: `Allocation amount ₹${amount} exceeds available advance balance of ₹${advance.remainingAdvance}.` };
+        }
+
+        const invoice = get().invoices.find((i) => i.id === invoiceId || i.num === invoiceId);
+        if (!invoice) return { success: false, message: "Target invoice not found." };
+        if (invoice.customerId !== advance.customerId) {
+          return { success: false, message: "Advance can only be allocated to an invoice belonging to the same customer account." };
+        }
+        if (invoice.outstanding <= 0) {
+          return { success: false, message: "This invoice is already fully settled." };
+        }
+        if (amount > invoice.outstanding) {
+          return { success: false, message: `Allocation amount ₹${amount} exceeds invoice outstanding balance of ₹${invoice.outstanding}.` };
+        }
+
+        const cust = get().customers.find((c) => c.id === advance.customerId);
+        const dateStr = getKolkataFormattedDate();
+        const user = allocatedBy || (get().currentUserRole === "admin" ? "Bachan Admin" : "Staff User");
+
+        const newRemainingAdvance = advance.remainingAdvance - amount;
+        const newAmountApplied = advance.amountApplied + amount;
+        const advanceStatus = newRemainingAdvance <= 0 ? ("fully_applied" as const) : ("active" as const);
+
+        const newPaid = invoice.paid + amount;
+        const newOutstanding = invoice.outstanding - amount;
+        const invoiceStatus = newOutstanding <= 0 ? ("paid" as const) : ("partially_paid" as const);
+
+        const allocation: AdvanceAllocation = {
+          id: `alloc-${Date.now()}`,
+          advanceId: advance.id,
+          advanceReceiptNum: advance.advanceReceiptNum,
+          advanceNum: advance.advanceReceiptNum,
+          customerId: advance.customerId,
+          customerName: cust?.name,
+          invoiceId: invoice.id,
+          invoiceNum: invoice.num,
+          orderId: invoice.orderId,
+          orderNum: invoice.orderNum,
+          allocatedAmount: amount,
+          allocatedDate: dateStr,
+          date: dateStr,
+          allocatedBy: user,
+          notes: notes || `Applied ₹${amount} from ${advance.advanceReceiptNum} to ${invoice.num}`,
+          createdAt: getKolkataDateString(),
+        };
+
+        const currentBal = cust?.outstanding || 0;
+        const newCustBal = Math.max(0, currentBal - amount);
+        const currentCustAdvance = cust?.advance_balance || 0;
+        const newCustAdvance = Math.max(0, currentCustAdvance - amount);
+
+        // Update corresponding order payment status if linked
+        const updatedOrders = get().orders.map(o => {
+          if (o.id === invoice.orderId || o.num === invoice.orderNum) {
+            const currentPaid = (o.paidAmount || 0) + amount;
+            const pStatus = currentPaid >= o.total ? ("paid" as const) : ("partially_paid" as const);
+            return { ...o, paidAmount: currentPaid, paymentStatus: pStatus };
+          }
+          return o;
+        });
+
+        // Ledger Entry
+        const ledgerEntry: LedgerEntry = {
+          id: `led-alloc-${Date.now()}`,
+          customerId: advance.customerId,
+          date: dateStr,
+          ref: advance.advanceReceiptNum,
+          type: "Advance Allocation",
+          desc: `Advance allocated to Tax Invoice ${invoice.num} (Order: ${invoice.orderNum})`,
+          debit: 0,
+          credit: amount,
+          balance: newCustBal,
+        };
+
+        set((state) => ({
+          customerAdvances: (state.customerAdvances || []).map((a) =>
+            a.id === advance.id
+              ? {
+                  ...a,
+                  amountApplied: newAmountApplied,
+                  remainingAdvance: newRemainingAdvance,
+                  status: advanceStatus,
+                }
+              : a
+          ),
+          advanceAllocations: [allocation, ...(state.advanceAllocations || [])],
+          invoices: state.invoices.map((inv) =>
+            inv.id === invoice.id
+              ? {
+                  ...inv,
+                  paid: newPaid,
+                  outstanding: newOutstanding,
+                  advanceApplied: (inv.advanceApplied || 0) + amount,
+                  status: invoiceStatus,
+                }
+              : inv
+          ),
+          orders: updatedOrders,
+          ledger: [...state.ledger, ledgerEntry],
+          customers: state.customers.map((c) =>
+            c.id === advance.customerId
+              ? {
+                  ...c,
+                  outstanding: newCustBal,
+                  advance_balance: newCustAdvance,
+                  advances_applied: (c.advances_applied || 0) + amount,
+                }
+              : c
+          ),
+          auditLogs: [
+            {
+              id: `a-${Date.now()}`,
+              timestamp: dateStr,
+              user,
+              action: "update",
+              resource: `Advance Allocation ${advance.advanceReceiptNum}`,
+              details: `Allocated ₹${amount.toLocaleString("en-IN")} from ${advance.advanceReceiptNum} to Invoice ${invoice.num}. Remaining Advance Carried Forward: ₹${newRemainingAdvance.toLocaleString("en-IN")}`,
+              ip: "127.0.0.1",
+            },
+            ...state.auditLogs,
+          ],
+        }));
+
+        return {
+          ...allocation,
+          success: true,
+          message: `Allocated ₹${amount.toLocaleString("en-IN")} from advance ${advance.advanceReceiptNum} to Invoice ${invoice.num}.`,
+          allocation,
+        };
       },
 
       // ── CREDIT LIMIT ──
@@ -2367,6 +2793,221 @@ export const useERPStore = create<ERPStore>()(
         }));
 
         return { imported, failed };
+      },
+
+      // ── MONTHLY STOCK REGISTERS & RECONCILIATION ──
+      recordStockReconciliation: ({ warehouseLocation = "Main Godown (Ludhiana)", productId, monthPeriod, isEmpty, physicalCount, reason, countedBy }) => {
+        const prod = get().products.find((p) => p.id === productId || p.code === productId);
+        if (!prod) throw new Error("Product not found.");
+        const ws = get().warehouseStock.find((w) => w.productId === prod.id);
+
+        const systemClosing = isEmpty
+          ? ((ws?.emptyOpeningStock || 0) + (ws?.emptyStockReceived || 0) - (ws?.emptyStockIssued || 0))
+          : ((ws?.filledOpeningStock || 0) + (ws?.filledStockReceived || 0) - (ws?.filledStockIssued || 0));
+
+        const qtyDiff = physicalCount - systemClosing;
+        const year = new Date().getFullYear();
+        const nextNum = (get().stockReconciliations?.length || 0) + 1;
+        const reconciliationNum = `BGS-RECON-${year}-${String(nextNum).padStart(5, "0")}`;
+        const user = countedBy || (get().currentUserRole === "admin" ? "Bachan Admin" : "Staff User");
+
+        const record: StockReconciliationRecord = {
+          id: `recon-${Date.now()}`,
+          reconciliationNum,
+          warehouseLocation,
+          productId: prod.id,
+          productName: prod.name,
+          monthPeriod,
+          isEmpty,
+          systemClosingQty: systemClosing,
+          physicalCount,
+          quantityDifference: qtyDiff,
+          reason,
+          status: "pending_approval",
+          countedBy: user,
+          countedAt: getKolkataDateString(),
+        };
+
+        set((state) => ({
+          stockReconciliations: [record, ...(state.stockReconciliations || [])],
+          auditLogs: [
+            {
+              id: `a-${Date.now()}`,
+              timestamp: getKolkataFormattedDate(),
+              user,
+              action: "create",
+              resource: `Reconciliation ${reconciliationNum}`,
+              details: `Submitted stock count for ${prod.name} (${isEmpty ? "Empty" : "Filled"}): Physical ${physicalCount} vs System ${systemClosing} (Diff: ${qtyDiff}). Awaiting Admin Approval.`,
+              ip: "127.0.0.1",
+            },
+            ...state.auditLogs,
+          ],
+        }));
+
+        return record;
+      },
+
+      approveStockReconciliation: (reconId, approvedBy = "Bachan Admin") => {
+        const recon = (get().stockReconciliations || []).find((r) => r.id === reconId);
+        if (!recon || recon.status !== "pending_approval") return;
+
+        // Apply authorized adjustment if difference != 0
+        let adjustmentMovementId: string | undefined;
+        if (recon.quantityDifference !== 0) {
+          const isAddition = recon.quantityDifference > 0;
+          const absQty = Math.abs(recon.quantityDifference);
+          const adjMov = get().recordStockAdjustment({
+            date: getKolkataDateString(),
+            productId: recon.productId,
+            qty: absQty,
+            isAddition,
+            reason: `Reconciliation (${recon.reconciliationNum}): ${recon.reason}`,
+            recordedBy: approvedBy,
+          });
+          adjustmentMovementId = adjMov.id;
+        }
+
+        set((state) => ({
+          stockReconciliations: (state.stockReconciliations || []).map((r) =>
+            r.id === recon.id
+              ? {
+                  ...r,
+                  status: "approved",
+                  approvedBy,
+                  approvedAt: getKolkataFormattedDate(),
+                  adjustmentMovementId,
+                }
+              : r
+          ),
+          auditLogs: [
+            {
+              id: `a-${Date.now()}`,
+              timestamp: getKolkataFormattedDate(),
+              user: approvedBy,
+              action: "approve",
+              resource: `Reconciliation ${recon.reconciliationNum}`,
+              details: `Approved stock reconciliation for ${recon.productName}. Diff ${recon.quantityDifference} adjusted.`,
+              ip: "127.0.0.1",
+            },
+            ...state.auditLogs,
+          ],
+        }));
+      },
+
+      getDailyStockRegister: (productId, monthPeriod) => {
+        const prod = get().products.find((p) => p.id === productId || p.code === productId);
+        if (!prod) return [];
+        const ws = get().warehouseStock.find((w) => w.productId === prod.id);
+
+        const [yearStr, monthStr] = monthPeriod.split("-");
+        const year = parseInt(yearStr, 10);
+        const month = parseInt(monthStr, 10);
+        const daysInMonth = new Date(year, month, 0).getDate();
+
+        const movements = get().stockMovements.filter((m) => m.productId === prod.id && m.status === "approved");
+
+        let runningFilled = ws?.filledOpeningStock !== null && ws?.filledOpeningStock !== undefined ? ws.filledOpeningStock : 0;
+        let runningEmpty = ws?.emptyOpeningStock !== null && ws?.emptyOpeningStock !== undefined ? ws.emptyOpeningStock : 0;
+
+        const results = [];
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dateStr = `${yearStr}-${String(monthStr).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+          const dayMovements = movements.filter((m) => m.date === dateStr);
+
+          // Filled movements
+          const receivedFilled = dayMovements.filter((m) => !m.isEmpty && m.type === "receipt").reduce((s, m) => s + m.qty, 0);
+          const issuedFilled = dayMovements.filter((m) => !m.isEmpty && m.type === "issue").reduce((s, m) => s + m.qty, 0);
+          const adjFilledPos = dayMovements.filter((m) => !m.isEmpty && m.type === "adjustment" && m.remarks?.includes("Addition")).reduce((s, m) => s + m.qty, 0);
+          const adjFilledNeg = dayMovements.filter((m) => !m.isEmpty && m.type === "adjustment" && !m.remarks?.includes("Addition")).reduce((s, m) => s + m.qty, 0);
+          const adjFilled = adjFilledPos - adjFilledNeg;
+
+          const openFilled = runningFilled;
+          const closeFilled = openFilled + receivedFilled + adjFilled - issuedFilled;
+          runningFilled = closeFilled;
+
+          // Empty movements
+          const receivedEmpty = dayMovements.filter((m) => m.isEmpty && (m.type === "cylinder_return" || m.type === "receipt")).reduce((s, m) => s + m.qty, 0);
+          const issuedEmpty = dayMovements.filter((m) => m.isEmpty && m.type === "issue").reduce((s, m) => s + m.qty, 0);
+          const adjEmpty = dayMovements.filter((m) => m.isEmpty && m.type === "adjustment").reduce((s, m) => s + m.qty, 0);
+
+          const openEmpty = runningEmpty;
+          const closeEmpty = openEmpty + receivedEmpty + adjEmpty - issuedEmpty;
+          runningEmpty = closeEmpty;
+
+          results.push({
+            date: dateStr,
+            openingFilled: openFilled,
+            receivedFilled,
+            issuedFilled,
+            adjFilled,
+            closingFilled: closeFilled,
+            openingEmpty: openEmpty,
+            receivedEmpty,
+            issuedEmpty,
+            adjEmpty,
+            closingEmpty: closeEmpty,
+          });
+        }
+
+        return results;
+      },
+
+      getMonthlyStockRegister: (productId, year = 2026) => {
+        const prod = get().products.find((p) => p.id === productId || p.code === productId);
+        if (!prod) return [];
+        const ws = get().warehouseStock.find((w) => w.productId === prod.id);
+
+        const movements = get().stockMovements.filter((m) => m.productId === prod.id && m.status === "approved");
+
+        const monthNames = [
+          "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+        ];
+
+        let runningFilled = ws?.filledOpeningStock !== null && ws?.filledOpeningStock !== undefined ? ws.filledOpeningStock : 0;
+        let runningEmpty = ws?.emptyOpeningStock !== null && ws?.emptyOpeningStock !== undefined ? ws.emptyOpeningStock : 0;
+
+        const results = [];
+        for (let mIdx = 0; mIdx < 12; mIdx++) {
+          const monthNum = mIdx + 1;
+          const monthPeriod = `${year}-${String(monthNum).padStart(2, "0")}`;
+          const monthMovements = movements.filter((m) => m.date && m.date.startsWith(monthPeriod));
+
+          const receivedFilled = monthMovements.filter((m) => !m.isEmpty && m.type === "receipt").reduce((s, m) => s + m.qty, 0);
+          const issuedFilled = monthMovements.filter((m) => !m.isEmpty && m.type === "issue").reduce((s, m) => s + m.qty, 0);
+          const adjFilled = monthMovements.filter((m) => !m.isEmpty && m.type === "adjustment").reduce((s, m) => s + m.qty, 0);
+
+          const openFilled = runningFilled;
+          const closeFilled = openFilled + receivedFilled + adjFilled - issuedFilled;
+          runningFilled = closeFilled;
+
+          const receivedEmpty = monthMovements.filter((m) => m.isEmpty && m.type === "receipt").reduce((s, m) => s + m.qty, 0);
+          const returnsEmpty = monthMovements.filter((m) => m.isEmpty && m.type === "cylinder_return").reduce((s, m) => s + m.qty, 0);
+          const issuedEmpty = monthMovements.filter((m) => m.isEmpty && m.type === "issue").reduce((s, m) => s + m.qty, 0);
+          const adjEmpty = monthMovements.filter((m) => m.isEmpty && m.type === "adjustment").reduce((s, m) => s + m.qty, 0);
+
+          const openEmpty = runningEmpty;
+          const closeEmpty = openEmpty + receivedEmpty + returnsEmpty + adjEmpty - issuedEmpty;
+          runningEmpty = closeEmpty;
+
+          results.push({
+            monthPeriod,
+            monthName: `${monthNames[mIdx]} ${year}`,
+            openingFilled: openFilled,
+            receivedFilled,
+            issuedFilled,
+            returnsEmpty,
+            adjFilled,
+            closingFilled: closeFilled,
+            openingEmpty: openEmpty,
+            receivedEmpty,
+            issuedEmpty,
+            adjEmpty,
+            closingEmpty: closeEmpty,
+          });
+        }
+
+        return results;
       },
 
       // ── IMPORTS ──

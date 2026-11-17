@@ -5,9 +5,10 @@ import Link from "next/link";
 import {
   Package, Truck, ArrowDownLeft, ArrowUpRight, RotateCcw,
   Sliders, History, Plus, CheckCircle2, AlertTriangle, ShieldCheck,
-  Search, ShieldAlert, FileText, Check, Clock, X, ChevronRight, Layers, Flame
+  Search, ShieldAlert, FileText, Check, Clock, X, ChevronRight, Layers, Flame,
+  Calendar, BarChart2, Download, Scale
 } from "lucide-react";
-import { useERPStore, WarehouseStockItem, StockMovement, EXACT_SIX_ACTIVE_PRODUCTS } from "@/lib/store";
+import { useERPStore, WarehouseStockItem, StockMovement, EXACT_SIX_ACTIVE_PRODUCTS, StockReconciliationRecord } from "@/lib/store";
 
 const card = (s?: React.CSSProperties): React.CSSProperties => ({
   background: "#ffffff",
@@ -28,14 +29,36 @@ export default function InventoryPage() {
     recordStockAdjustment,
     approveStockAdjustment,
     configureOpeningStock,
+    getDailyStockRegister,
+    getMonthlyStockRegister,
+    stockReconciliations,
+    recordStockReconciliation,
+    approveStockReconciliation,
   } = useERPStore();
 
   const isAdmin = currentUserRole === "admin";
   const activeProducts = products.filter(p => p.active);
 
   const [activeTab, setActiveTab] = useState<
-    "overview" | "receipts" | "issues" | "adjustments" | "returns" | "history"
+    "overview" | "receipts" | "issues" | "adjustments" | "returns" | "history" | "daily_register" | "monthly_register" | "reconciliation"
   >("overview");
+
+  // Daily & Monthly Register Filters
+  const [dailyMonth, setDailyMonth] = useState("2026-11");
+  const [dailyProdId, setDailyProdId] = useState(activeProducts[0]?.id || "p1");
+
+  const [monthlyYear, setMonthlyYear] = useState(2026);
+  const [monthlyProdId, setMonthlyProdId] = useState(activeProducts[0]?.id || "p1");
+
+  // Reconciliation modal state
+  const [showReconModal, setShowReconModal] = useState(false);
+  const [reconForm, setReconForm] = useState({
+    productId: activeProducts[0]?.id || "p1",
+    monthPeriod: "2026-11",
+    isEmpty: false,
+    physicalCount: "",
+    reason: "Month-End Physical Stock Verification",
+  });
 
   // Modals state
   const [showReceiptModal, setShowReceiptModal] = useState(false);
@@ -157,6 +180,34 @@ export default function InventoryPage() {
     setShowOpeningModal(false);
   };
 
+  // Handle Reconciliation Submit
+  const handleReconciliationSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const countNum = parseInt(reconForm.physicalCount);
+    if (isNaN(countNum) || countNum < 0) {
+      alert("Please enter a valid non-negative physical count.");
+      return;
+    }
+    const rec = recordStockReconciliation({
+      productId: reconForm.productId,
+      monthPeriod: reconForm.monthPeriod,
+      isEmpty: reconForm.isEmpty,
+      physicalCount: countNum,
+      reason: reconForm.reason,
+      countedBy: currentSessionUser?.fullName || (isAdmin ? "Bachan Admin" : "Staff User"),
+    });
+
+    setNotification({
+      type: "success",
+      text: `Physical count recorded for ${rec.productName}. Variance: ${rec.quantityDifference > 0 ? "+" : ""}${rec.quantityDifference} units. ${isAdmin ? "Approve below to apply authorized adjustment." : "Submitted for Admin approval."}`,
+    });
+    setShowReconModal(false);
+    setReconForm({
+      ...reconForm,
+      physicalCount: "",
+    });
+  };
+
   // Filter lists
   const receiptMovements = stockMovements.filter(m => m.type === "receipt");
   const issueMovements = stockMovements.filter(m => m.type === "issue");
@@ -230,6 +281,18 @@ export default function InventoryPage() {
             }}
           >
             <Sliders size={16} /> Stock Adjustment
+          </button>
+
+          <button
+            onClick={() => setShowReconModal(true)}
+            style={{
+              padding: "9px 16px", borderRadius: 8, border: "1.5px solid #cbd5e1",
+              background: "#fff", color: "#1e3a8a", fontSize: 13, fontWeight: 700,
+              cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7,
+              boxShadow: "0 1px 3px rgba(0,0,0,0.06)", transition: "all .15s"
+            }}
+          >
+            <Scale size={16} color="#1e3a8a" /> Physical Count Recon
           </button>
 
           {isAdmin && (
@@ -338,7 +401,10 @@ export default function InventoryPage() {
           { id: "issues", label: "3. Stock Issues", icon: ArrowUpRight, count: issueMovements.length },
           { id: "adjustments", label: "4. Stock Adjustments", icon: Sliders, count: adjustmentMovements.length },
           { id: "returns", label: "5. Cylinder Returns", icon: RotateCcw, count: returnMovements.length },
-          { id: "history", label: "6. Movement History", icon: History, count: stockMovements.length },
+          { id: "daily_register", label: "6. Daily Register", icon: Calendar },
+          { id: "monthly_register", label: "7. Monthly Register & Analysis", icon: BarChart2 },
+          { id: "reconciliation", label: "8. Month-End Reconciliation", icon: Scale, count: (stockReconciliations || []).filter(r => r.status === "pending_approval").length },
+          { id: "history", label: "9. Movement History", icon: History, count: stockMovements.length },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -892,6 +958,358 @@ export default function InventoryPage() {
         </div>
       )}
 
+      {/* ── TAB 6: DAILY STOCK REGISTER (CONTINUOUS CARRY FORWARD) ── */}
+      {activeTab === "daily_register" && (
+        <div style={{ ...card(), overflow: "hidden" }}>
+          <div style={{
+            padding: "16px 20px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc",
+            display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12
+          }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Calendar size={18} color="#ea580c" />
+                <h2 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", margin: 0 }}>
+                  Daily Warehouse Stock Register (Continuous Carry-Forward)
+                </h2>
+              </div>
+              <p style={{ fontSize: 12, color: "#64748b", margin: "3px 0 0" }}>
+                Closing stock of Day N automatically becomes the opening stock of Day N+1 in Asia/Kolkata timezone.
+              </p>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <select
+                value={dailyProdId}
+                onChange={(e) => setDailyProdId(e.target.value)}
+                style={{ padding: "8px 12px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontSize: 13, fontWeight: 700, color: "#0f172a", background: "#fff" }}
+              >
+                {activeProducts.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+
+              <input
+                type="month"
+                value={dailyMonth}
+                onChange={(e) => setDailyMonth(e.target.value)}
+                style={{ padding: "7px 12px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontSize: 13, fontWeight: 700, color: "#0f172a", background: "#fff" }}
+              />
+            </div>
+          </div>
+
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+              <thead>
+                <tr style={{ background: "#f1f5f9", borderBottom: "1.5px solid #cbd5e1", textAlign: "right", color: "#475569", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                  <th style={{ padding: "11px 14px", textAlign: "left" }}>Date</th>
+                  <th style={{ padding: "11px 12px" }}>Opening (F)</th>
+                  <th style={{ padding: "11px 12px", color: "#16a34a" }}>Receipts (F)</th>
+                  <th style={{ padding: "11px 12px", color: "#dc2626" }}>Issues (F)</th>
+                  <th style={{ padding: "11px 12px" }}>Adj (F)</th>
+                  <th style={{ padding: "11px 12px", fontWeight: 900, color: "#0f172a" }}>Closing (F)</th>
+                  <th style={{ padding: "11px 12px", borderLeft: "2px solid #e2e8f0" }}>Opening (E)</th>
+                  <th style={{ padding: "11px 12px", color: "#16a34a" }}>Returns (E)</th>
+                  <th style={{ padding: "11px 12px", color: "#dc2626" }}>Sent Out (E)</th>
+                  <th style={{ padding: "11px 12px" }}>Adj (E)</th>
+                  <th style={{ padding: "11px 12px", fontWeight: 900, color: "#0f172a" }}>Closing (E)</th>
+                  <th style={{ padding: "11px 14px", color: "#ea580c", fontWeight: 800 }}>Gas Wt (kg)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  const data = getDailyStockRegister ? getDailyStockRegister(dailyProdId, dailyMonth) : [];
+                  const p = products.find(prod => prod.id === dailyProdId);
+                  const refWt = p?.referenceWeightKg || 19;
+                  return data.map((d) => (
+                    <tr key={d.date} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                      <td style={{ padding: "10px 14px", textAlign: "left", fontFamily: "monospace", fontWeight: 700, color: "#1e293b" }}>
+                        {d.date}
+                      </td>
+                      <td style={{ padding: "10px 12px", textAlign: "right" }}>{d.openingFilled}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", color: d.receivedFilled > 0 ? "#16a34a" : "#94a3b8", fontWeight: d.receivedFilled > 0 ? 700 : 400 }}>
+                        {d.receivedFilled > 0 ? `+${d.receivedFilled}` : 0}
+                      </td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", color: d.issuedFilled > 0 ? "#dc2626" : "#94a3b8", fontWeight: d.issuedFilled > 0 ? 700 : 400 }}>
+                        {d.issuedFilled > 0 ? `−${d.issuedFilled}` : 0}
+                      </td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", color: d.adjFilled !== 0 ? "#7c3aed" : "#94a3b8" }}>
+                        {d.adjFilled !== 0 ? (d.adjFilled > 0 ? `+${d.adjFilled}` : `${d.adjFilled}`) : 0}
+                      </td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 800, color: "#0f172a", background: "#f8fafc" }}>
+                        {d.closingFilled}
+                      </td>
+
+                      <td style={{ padding: "10px 12px", textAlign: "right", borderLeft: "2px solid #e2e8f0" }}>{d.openingEmpty}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", color: d.receivedEmpty > 0 ? "#16a34a" : "#94a3b8", fontWeight: d.receivedEmpty > 0 ? 700 : 400 }}>
+                        {d.receivedEmpty > 0 ? `+${d.receivedEmpty}` : 0}
+                      </td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", color: d.issuedEmpty > 0 ? "#dc2626" : "#94a3b8", fontWeight: d.issuedEmpty > 0 ? 700 : 400 }}>
+                        {d.issuedEmpty > 0 ? `−${d.issuedEmpty}` : 0}
+                      </td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", color: d.adjEmpty !== 0 ? "#7c3aed" : "#94a3b8" }}>
+                        {d.adjEmpty !== 0 ? `${d.adjEmpty}` : 0}
+                      </td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 800, color: "#0f172a", background: "#f8fafc" }}>
+                        {d.closingEmpty}
+                      </td>
+
+                      <td style={{ padding: "10px 14px", textAlign: "right", fontWeight: 800, color: "#ea580c" }}>
+                        {(d.closingFilled * refWt).toLocaleString("en-IN")} kg
+                      </td>
+                    </tr>
+                  ));
+                })()}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB 7: MONTHLY STOCK REGISTER & MOM MOVEMENT ANALYSIS ── */}
+      {activeTab === "monthly_register" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ ...card(), padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <BarChart2 size={18} color="#2563eb" />
+                <h2 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", margin: 0 }}>
+                  Monthly Stock Register & Movement Analysis
+                </h2>
+              </div>
+              <p style={{ fontSize: 12, color: "#64748b", margin: "3px 0 0" }}>
+                Continuous monthly opening and closing balances with month-over-month movement comparison.
+              </p>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <select
+                value={monthlyProdId}
+                onChange={(e) => setMonthlyProdId(e.target.value)}
+                style={{ padding: "8px 12px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontSize: 13, fontWeight: 700, color: "#0f172a", background: "#fff" }}
+              >
+                {activeProducts.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+
+              <select
+                value={monthlyYear}
+                onChange={(e) => setMonthlyYear(Number(e.target.value))}
+                style={{ padding: "8px 12px", borderRadius: 8, border: "1.5px solid #cbd5e1", fontSize: 13, fontWeight: 700, color: "#0f172a", background: "#fff" }}
+              >
+                <option value={2026}>Calendar Year 2026</option>
+                <option value={2025}>Calendar Year 2025</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ ...card(), overflow: "hidden" }}>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "#f1f5f9", borderBottom: "1.5px solid #cbd5e1", textAlign: "right", color: "#475569", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                    <th style={{ padding: "12px 16px", textAlign: "left" }}>Month Period</th>
+                    <th style={{ padding: "12px 14px" }}>Opening (F)</th>
+                    <th style={{ padding: "12px 14px", color: "#16a34a" }}>Receipts (F)</th>
+                    <th style={{ padding: "12px 14px", color: "#dc2626" }}>Dispatches (F)</th>
+                    <th style={{ padding: "12px 14px" }}>Adj (F)</th>
+                    <th style={{ padding: "12px 14px", fontWeight: 800, color: "#0f172a" }}>Closing (F)</th>
+                    <th style={{ padding: "12px 14px", borderLeft: "2px solid #e2e8f0" }}>Opening (E)</th>
+                    <th style={{ padding: "12px 14px", color: "#16a34a" }}>Returns (E)</th>
+                    <th style={{ padding: "12px 14px", color: "#dc2626" }}>Issues (E)</th>
+                    <th style={{ padding: "12px 14px", fontWeight: 800, color: "#0f172a" }}>Closing (E)</th>
+                    <th style={{ padding: "12px 14px", textAlign: "center" }}>Net Monthly Change</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const mData = getMonthlyStockRegister ? getMonthlyStockRegister(monthlyProdId, monthlyYear) : [];
+                    return mData.map((m) => {
+                      const netFilled = m.closingFilled - m.openingFilled;
+                      return (
+                        <tr key={m.monthPeriod} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                          <td style={{ padding: "12px 16px", textAlign: "left", fontWeight: 800, color: "#1e293b" }}>
+                            {m.monthName}
+                          </td>
+                          <td style={{ padding: "12px 14px", textAlign: "right" }}>{m.openingFilled}</td>
+                          <td style={{ padding: "12px 14px", textAlign: "right", color: m.receivedFilled > 0 ? "#16a34a" : "#94a3b8", fontWeight: m.receivedFilled > 0 ? 700 : 400 }}>
+                            {m.receivedFilled > 0 ? `+${m.receivedFilled}` : 0}
+                          </td>
+                          <td style={{ padding: "12px 14px", textAlign: "right", color: m.issuedFilled > 0 ? "#dc2626" : "#94a3b8", fontWeight: m.issuedFilled > 0 ? 700 : 400 }}>
+                            {m.issuedFilled > 0 ? `−${m.issuedFilled}` : 0}
+                          </td>
+                          <td style={{ padding: "12px 14px", textAlign: "right" }}>{m.adjFilled || 0}</td>
+                          <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 800, color: "#0f172a", background: "#f8fafc" }}>
+                            {m.closingFilled}
+                          </td>
+
+                          <td style={{ padding: "12px 14px", textAlign: "right", borderLeft: "2px solid #e2e8f0" }}>{m.openingEmpty}</td>
+                          <td style={{ padding: "12px 14px", textAlign: "right", color: m.returnsEmpty > 0 ? "#16a34a" : "#94a3b8", fontWeight: m.returnsEmpty > 0 ? 700 : 400 }}>
+                            {m.returnsEmpty > 0 ? `+${m.returnsEmpty}` : 0}
+                          </td>
+                          <td style={{ padding: "12px 14px", textAlign: "right", color: m.issuedEmpty > 0 ? "#dc2626" : "#94a3b8", fontWeight: m.issuedEmpty > 0 ? 700 : 400 }}>
+                            {m.issuedEmpty > 0 ? `−${m.issuedEmpty}` : 0}
+                          </td>
+                          <td style={{ padding: "12px 14px", textAlign: "right", fontWeight: 800, color: "#0f172a", background: "#f8fafc" }}>
+                            {m.closingEmpty}
+                          </td>
+
+                          <td style={{ padding: "12px 14px", textAlign: "center" }}>
+                            <span style={{
+                              padding: "3px 9px", borderRadius: 100, fontSize: 11, fontWeight: 700,
+                              background: netFilled > 0 ? "#ecfdf5" : netFilled < 0 ? "#fef2f2" : "#f1f5f9",
+                              color: netFilled > 0 ? "#065f46" : netFilled < 0 ? "#991b1b" : "#475569"
+                            }}>
+                              {netFilled > 0 ? `+${netFilled} filled` : netFilled < 0 ? `${netFilled} filled` : "0 (Balanced)"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB 8: MONTH-END STOCK RECONCILIATION WORKFLOW ── */}
+      {activeTab === "reconciliation" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ ...card(), padding: "18px 22px", background: "linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)", border: "1.5px solid #bfdbfe" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Scale size={20} color="#1e3a8a" />
+                  <h2 style={{ fontSize: 16, fontWeight: 800, color: "#1e3a8a", margin: 0 }}>
+                    Month-End Physical Stock Reconciliation Workflow
+                  </h2>
+                </div>
+                <p style={{ fontSize: 12.5, color: "#475569", margin: "4px 0 0", maxWidth: 750 }}>
+                  Enter actual physical godown cylinder counts at the end of each month.
+                  The system automatically calculates the variance (Physical Count − System Closing Stock).
+                  Admin approval creates an authorized audit adjustment record to align system stock with verified reality.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setShowReconModal(true)}
+                style={{
+                  padding: "9px 18px", borderRadius: 8, border: "none",
+                  background: "#1e3a8a", color: "#fff", fontSize: 13, fontWeight: 700,
+                  cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
+                  boxShadow: "0 2px 6px rgba(30,58,138,0.25)"
+                }}
+              >
+                <Plus size={15} /> Record Physical Stock Count
+              </button>
+            </div>
+          </div>
+
+          <div style={{ ...card(), overflow: "hidden" }}>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: "#f1f5f9", borderBottom: "1.5px solid #cbd5e1", textAlign: "left", color: "#475569", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
+                    <th style={{ padding: "12px 16px" }}>Reconciliation #</th>
+                    <th style={{ padding: "12px 16px" }}>Month Period</th>
+                    <th style={{ padding: "12px 16px" }}>Product & Type</th>
+                    <th style={{ padding: "12px 16px", textAlign: "right" }}>System Closing</th>
+                    <th style={{ padding: "12px 16px", textAlign: "right" }}>Physical Count</th>
+                    <th style={{ padding: "12px 16px", textAlign: "right" }}>Variance (Diff)</th>
+                    <th style={{ padding: "12px 16px" }}>Variance Reason</th>
+                    <th style={{ padding: "12px 16px" }}>Status</th>
+                    <th style={{ padding: "12px 16px" }}>Audited By</th>
+                    {isAdmin && <th style={{ padding: "12px 16px", textAlign: "right" }}>Action</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(stockReconciliations || []).length === 0 ? (
+                    <tr>
+                      <td colSpan={10} style={{ textAlign: "center", padding: "40px 20px", color: "#64748b" }}>
+                        No physical stock reconciliation entries recorded yet. Click "Record Physical Stock Count" at month-end to initiate reconciliation.
+                      </td>
+                    </tr>
+                  ) : (
+                    (stockReconciliations || []).map((r) => {
+                      return (
+                        <tr key={r.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                          <td style={{ padding: "12px 16px", fontFamily: "monospace", fontWeight: 800, color: "#1e3a8a" }}>
+                            {r.reconciliationNum}
+                          </td>
+                          <td style={{ padding: "12px 16px", fontWeight: 700, color: "#0f172a" }}>
+                            {r.monthPeriod}
+                          </td>
+                          <td style={{ padding: "12px 16px" }}>
+                            <div style={{ fontWeight: 700, color: "#1e293b" }}>{r.productName}</div>
+                            <span style={{ fontSize: 11, color: r.isEmpty ? "#0284c7" : "#16a34a", fontWeight: 600 }}>
+                              {r.isEmpty ? "Empty Cylinders" : "Filled Cylinders"}
+                            </span>
+                          </td>
+                          <td style={{ padding: "12px 16px", textAlign: "right", fontFamily: "monospace", fontWeight: 700 }}>
+                            {r.systemClosingQty}
+                          </td>
+                          <td style={{ padding: "12px 16px", textAlign: "right", fontFamily: "monospace", fontWeight: 800, color: "#1e3a8a" }}>
+                            {r.physicalCount}
+                          </td>
+                          <td style={{ padding: "12px 16px", textAlign: "right", fontFamily: "monospace", fontWeight: 900, color: r.quantityDifference === 0 ? "#16a34a" : r.quantityDifference > 0 ? "#0f766e" : "#dc2626" }}>
+                            {r.quantityDifference > 0 ? `+${r.quantityDifference}` : r.quantityDifference}
+                          </td>
+                          <td style={{ padding: "12px 16px", fontSize: 12, color: "#475569" }}>
+                            {r.reason}
+                          </td>
+                          <td style={{ padding: "12px 16px" }}>
+                            <span style={{
+                              padding: "3px 9px", borderRadius: 100, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase",
+                              background: r.status === "approved" ? "#dcfce7" : "#fef3c7",
+                              color: r.status === "approved" ? "#166534" : "#92400e"
+                            }}>
+                              {r.status === "approved" ? "Approved" : "Pending Approval"}
+                            </span>
+                          </td>
+                          <td style={{ padding: "12px 16px", fontSize: 12, color: "#64748b" }}>
+                            <div>{r.countedBy}</div>
+                            <div style={{ fontSize: 10.5, color: "#94a3b8" }}>{r.countedAt}</div>
+                          </td>
+                          {isAdmin && (
+                            <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                              {r.status === "pending_approval" && (
+                                <button
+                                  onClick={() => {
+                                    approveStockReconciliation(r.id, currentSessionUser?.fullName || "Bachan Admin");
+                                    setNotification({
+                                      type: "success",
+                                      text: `Stock reconciliation ${r.reconciliationNum} approved! Authorized adjustment applied to inventory.`
+                                    });
+                                  }}
+                                  style={{
+                                    padding: "6px 12px", borderRadius: 6, border: "none",
+                                    background: "#16a34a", color: "#fff", fontSize: 11.5, fontWeight: 700,
+                                    cursor: "pointer"
+                                  }}
+                                >
+                                  ✓ Approve & Adjust
+                                </button>
+                              )}
+                              {r.status === "approved" && (
+                                <span style={{ fontSize: 11, color: "#166534", fontWeight: 700 }}>
+                                  ✓ Adjusted
+                                </span>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── MODAL 1: STOCK RECEIPT ── */}
       {showReceiptModal && (
         <div style={{
@@ -1203,6 +1621,123 @@ export default function InventoryPage() {
                   }}
                 >
                   Save Baseline
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL 4: PHYSICAL STOCK RECONCILIATION ── */}
+      {showReconModal && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 16
+        }}>
+          <div style={{ background: "#ffffff", borderRadius: 16, maxWidth: 500, width: "100%", padding: 24, boxShadow: "0 20px 50px rgba(0,0,0,0.3)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, borderBottom: "1px solid #e2e8f0", paddingBottom: 12 }}>
+              <div>
+                <h3 style={{ fontSize: 17, fontWeight: 800, color: "#0f172a", margin: 0 }}>Record Month-End Physical Stock Count</h3>
+                <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>Compare actual physical count with system closing balance</p>
+              </div>
+              <button onClick={() => setShowReconModal(false)} style={{ background: "none", border: "none", fontSize: 18, color: "#94a3b8", cursor: "pointer", fontWeight: 700 }}>✕</button>
+            </div>
+
+            <form onSubmit={handleReconciliationSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                  Select Product *
+                </label>
+                <select
+                  value={reconForm.productId}
+                  onChange={(e) => setReconForm({ ...reconForm, productId: e.target.value })}
+                  style={{ width: "100%", padding: "9px 12px", fontSize: 13, border: "1.5px solid #cbd5e1", borderRadius: 8, outline: "none", background: "#f8fafc" }}
+                >
+                  {activeProducts.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                    Reconciliation Month *
+                  </label>
+                  <input
+                    type="month"
+                    required
+                    value={reconForm.monthPeriod}
+                    onChange={(e) => setReconForm({ ...reconForm, monthPeriod: e.target.value })}
+                    style={{ width: "100%", padding: "9px 12px", fontSize: 13, border: "1.5px solid #cbd5e1", borderRadius: 8, outline: "none" }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                    Cylinder Category *
+                  </label>
+                  <select
+                    value={reconForm.isEmpty ? "empty" : "filled"}
+                    onChange={(e) => setReconForm({ ...reconForm, isEmpty: e.target.value === "empty" })}
+                    style={{ width: "100%", padding: "9px 12px", fontSize: 13, border: "1.5px solid #cbd5e1", borderRadius: 8, outline: "none", background: "#f8fafc" }}
+                  >
+                    <option value="filled">Filled Cylinders</option>
+                    <option value="empty">Empty Cylinders</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                  Actual Physical Count in Godown *
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  value={reconForm.physicalCount}
+                  onChange={(e) => setReconForm({ ...reconForm, physicalCount: e.target.value })}
+                  placeholder="e.g. 142"
+                  style={{ width: "100%", padding: "9px 12px", fontSize: 14, fontWeight: 700, border: "1.5px solid #cbd5e1", borderRadius: 8, outline: "none" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                  Variance Reason / Audit Remarks *
+                </label>
+                <select
+                  value={reconForm.reason}
+                  onChange={(e) => setReconForm({ ...reconForm, reason: e.target.value })}
+                  style={{ width: "100%", padding: "9px 12px", fontSize: 13, border: "1.5px solid #cbd5e1", borderRadius: 8, outline: "none", background: "#f8fafc" }}
+                >
+                  <option value="Month-End Physical Stock Verification">Month-End Physical Stock Verification</option>
+                  <option value="Cylinder Pin / Valve Defect Leakage">Cylinder Pin / Valve Defect Leakage</option>
+                  <option value="Transit Handling Variance">Transit Handling Variance</option>
+                  <option value="Tare Discrepancy Correction">Tare Discrepancy Correction</option>
+                </select>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8, borderTop: "1px solid #e2e8f0", paddingTop: 14 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowReconModal(false)}
+                  style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #cbd5e1", background: "#fff", fontSize: 13, cursor: "pointer", fontWeight: 600 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  style={{
+                    padding: "8px 18px", borderRadius: 8, border: "none",
+                    background: "#1e3a8a", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
+                  }}
+                >
+                  Submit Count
                 </button>
               </div>
             </form>
