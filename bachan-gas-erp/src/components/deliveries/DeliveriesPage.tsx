@@ -172,7 +172,17 @@ export default function DeliveriesPage() {
             Track cylinder supplies, vehicle routes, empty cylinder returns, and customer exchange balances
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <Link
+            href="/cylinder-returns"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px",
+              borderRadius: 8, fontSize: 12.5, fontWeight: 700, background: "#fff7ed",
+              color: "#c2410c", border: "1.5px solid #fed7aa", textDecoration: "none"
+            }}
+          >
+            <RotateCcw size={14} /> Cylinder Returns Portal →
+          </Link>
           <button
             onClick={() => setShowEmptyReturnModal(true)}
             style={{

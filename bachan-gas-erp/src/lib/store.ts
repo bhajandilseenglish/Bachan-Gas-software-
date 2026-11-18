@@ -468,14 +468,18 @@ export interface OrderItem {
 export interface Order {
   id: string;
   num: string; // e.g. BGS-ORD-2026-000001
+  orderNum?: string; // alias to num
   customerId: string;
   customerName: string;
   customerCode: string;
   sapCode?: string;
   date: string;
+  orderDate?: string; // alias to date
   deliveryDate?: string;
   items: OrderItem[];
   totalQty: number;
+  qty?: number; // alias to totalQty
+  productName?: string; // alias
   qtyIssued?: number;
   emptyReceivedOnOrder?: number;
   emptyPendingSnapshot?: number;
@@ -931,7 +935,19 @@ interface ERPStore {
   pauseCustomerAlerts: (customerId: string, paused: boolean, reason?: string) => void;
 
   // Empty Cylinder Exchange
-  recordEmptyReturn: (data: { customerId: string; productId?: string; productName: string; emptyReceived: number; returnDate: string; refNum?: string; remarks?: string; recordedBy?: string }) => CylinderExchangeRecord;
+  recordEmptyReturn: (data: {
+    customerId: string;
+    productId?: string;
+    productName: string;
+    emptyReceived: number;
+    returnDate: string;
+    refNum?: string;
+    remarks?: string;
+    recordedBy?: string;
+    orderId?: string;
+    orderNum?: string;
+    warehouseLocation?: string;
+  }) => CylinderExchangeRecord;
 
   // Product & Basic Rate Master Actions
   addProduct: (prod: Omit<CylinderProduct, "id">) => CylinderProduct;
@@ -1497,7 +1513,19 @@ export const useERPStore = create<ERPStore>()(
       },
 
       // ── EMPTY CYLINDER EXCHANGE ──
-      recordEmptyReturn: ({ customerId, productId, productName, emptyReceived, returnDate, refNum, remarks, recordedBy }) => {
+      recordEmptyReturn: ({
+        customerId,
+        productId,
+        productName,
+        emptyReceived,
+        returnDate,
+        refNum,
+        remarks,
+        recordedBy,
+        orderId,
+        orderNum,
+        warehouseLocation,
+      }) => {
         const cust = get().customers.find((c) => c.id === customerId || c.code === customerId);
         if (!cust) throw new Error("Customer not found.");
 
@@ -1511,6 +1539,8 @@ export const useERPStore = create<ERPStore>()(
         const record: CylinderExchangeRecord = {
           id: `exc-${Date.now()}`,
           exchangeNum,
+          orderId,
+          orderNum,
           customerId: cust.id,
           customerName: cust.name,
           customerCode: cust.code,
@@ -1537,6 +1567,15 @@ export const useERPStore = create<ERPStore>()(
                 }
               : c
           ),
+          warehouseStock: state.warehouseStock.map((s) => {
+            const matches = (productId && s.productId === productId) || s.productName === productName;
+            if (!matches) return s;
+            return {
+              ...s,
+              emptyStockReceived: (s.emptyStockReceived || 0) + emptyReceived,
+              lastUpdated: getKolkataDateString(),
+            };
+          }),
           auditLogs: [
             {
               id: `a-${Date.now()}`,

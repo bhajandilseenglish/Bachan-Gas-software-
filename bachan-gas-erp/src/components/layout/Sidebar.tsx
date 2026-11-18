@@ -82,7 +82,7 @@ export default function Sidebar({ collapsed, mobileOpen, onClose }: Props) {
       label: "Deliveries", href: "/deliveries", Icon: Truck,
     },
     {
-      label: "Cylinder Returns", href: "/deliveries?tab=received", Icon: RotateCcw,
+      label: "Cylinder Returns", href: "/cylinder-returns", Icon: RotateCcw,
     },
     {
       label: "Warehouse Inventory", href: "/inventory", Icon: Package,
