@@ -361,44 +361,6 @@ function NewOrderForm() {
         </div>
       )}
 
-      {/* Quick Helper Banner if rate is unconfigured */}
-      {currentRate <= 0 && (
-        <div style={{
-          background: "#fffbeb", border: "1.5px solid #fde68a", borderRadius: 10,
-          padding: "14px 18px", marginBottom: 18, display: "flex", alignItems: "center",
-          justifyContent: "space-between", flexWrap: "wrap", gap: 12
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <AlertTriangle size={20} color="#d97706" />
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "#92400e" }}>
-                Pricing Ready to Configure
-              </div>
-              <div style={{ fontSize: 12, color: "#b45309", marginTop: 2 }}>
-                Enter the Basic Rate or Rate per KG below, or click &quot;Apply Standard Master Rate&quot; to populate standard pricing.
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              const defaultKg = 100;
-              const defaultRate = defaultKg * refWeight;
-              setRate(defaultRate);
-              setRatePerKg(defaultKg);
-              setRateSource("standard");
-            }}
-            style={{
-              padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700,
-              background: "#d97706", color: "#fff", border: "none", cursor: "pointer",
-              display: "inline-flex", alignItems: "center", gap: 5
-            }}
-          >
-            Apply Standard Rate (₹100/kg)
-          </button>
-        </div>
-      )}
-
       {/* Main Order Form */}
       <form onSubmit={handleSubmit}>
         {/* Order Meta & Schedule */}

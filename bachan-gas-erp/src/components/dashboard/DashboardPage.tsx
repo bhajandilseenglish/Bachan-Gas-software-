@@ -436,7 +436,7 @@ export default function DashboardPage() {
           </div>
           <Link href="/orders" style={{ fontSize: 11.5, color: "#1e3a8a", fontWeight: 700, textDecoration: "none" }}>View All Orders →</Link>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }} className="stat-grid-4">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }} className="stat-grid-3">
           <MetCard
             title="Today's Orders"
             value={todaysOrdersCount.toString()}
@@ -460,14 +460,6 @@ export default function DashboardPage() {
             Icon={Package}
             color="#7c3aed"
             href="/deliveries"
-          />
-          <MetCard
-            title="In-Transit from Plants"
-            value={`${inTransitCylindersTotal} units`}
-            sub={`${activeShipmentsCount} vehicle shipments`}
-            Icon={Truck}
-            color="#ea580c"
-            href="/inventory"
           />
         </div>
       </div>

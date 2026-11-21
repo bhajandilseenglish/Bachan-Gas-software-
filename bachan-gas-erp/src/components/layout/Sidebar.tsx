@@ -7,7 +7,7 @@ import {
   Truck, Package, Receipt, CreditCard, FileText, BookOpen, BarChart2,
   TrendingUp, PieChart, Settings, UserCog, ScrollText, FileArchive,
   ChevronRight, Flame, Tag, History, Shield, LogOut, X, AlertTriangle,
-  RotateCcw, CheckSquare, Calendar, Bell, ShieldCheck, Wallet
+  RotateCcw, CheckSquare, Calendar, Bell, ShieldCheck, Wallet, Percent
 } from "lucide-react";
 import { useERPStore } from "@/lib/store";
 
@@ -34,7 +34,16 @@ export default function Sidebar({ collapsed, mobileOpen, onClose }: Props) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { currentUserRole, missedOrderAlerts, customerApprovals } = useERPStore();
-  const [open, setOpen] = useState<string[]>(["Customers", "Finance", "Orders"]);
+  
+  // Auto-expand only the currently active section, keeping everything else clean and uncluttered
+  const [open, setOpen] = useState<string[]>(() => {
+    if (pathname.startsWith("/orders")) return ["Orders"];
+    if (pathname.startsWith("/customers")) return ["Customers"];
+    if (pathname.startsWith("/finance")) return ["Finance"];
+    if (pathname.startsWith("/reports")) return ["Reports"];
+    if (pathname.startsWith("/settings") || pathname.startsWith("/products") || pathname.startsWith("/admin")) return ["Settings"];
+    return [];
+  });
 
   const pendingAlertCount = missedOrderAlerts.filter(a => a.status === "active").length;
   const pendingApprovalsCount = customerApprovals.filter(a => a.status === "pending_approval").length;
@@ -44,39 +53,11 @@ export default function Sidebar({ collapsed, mobileOpen, onClose }: Props) {
   const NAV: NavItem[] = [
     { label: "Dashboard", href: "/dashboard", Icon: LayoutDashboard },
     {
-      label: "Customers", Icon: Users,
-      badge: (isAdmin && pendingApprovalsCount > 0) || pendingAlertCount > 0 ? (pendingApprovalsCount + pendingAlertCount) : undefined,
-      children: [
-        { label: "Add Customer", href: "/customers/new", Icon: Plus },
-        { label: "All Customers", href: "/customers", Icon: Users },
-        { label: "Pilot Accounts (10)", href: "/customers/pilot", Icon: ShieldCheck },
-        ...(isAdmin
-          ? [
-              {
-                label: "Customer Approvals",
-                href: "/admin/customer-approvals",
-                Icon: ShieldCheck,
-                badge: pendingApprovalsCount > 0 ? String(pendingApprovalsCount) : undefined,
-                badgeColor: "#ea580c",
-              },
-            ]
-          : []),
-        {
-          label: "Missed Order Alerts",
-          href: "/customers/alerts",
-          Icon: AlertTriangle,
-          badge: pendingAlertCount > 0 ? String(pendingAlertCount) : undefined,
-          badgeColor: "#dc2626",
-        },
-        { label: "Excel Import", href: "/customers/import", Icon: Upload },
-      ],
-    },
-    {
       label: "Orders", Icon: ShoppingCart,
       children: [
         { label: "All Orders", href: "/orders", Icon: ShoppingCart },
         { label: "Create Order", href: "/orders/new", Icon: Plus },
-        { label: "Pending Orders", href: "/orders?status=pending_dispatch", Icon: Clock },
+        { label: "Pending Dispatch", href: "/orders?status=pending_dispatch", Icon: Clock },
       ],
     },
     {
@@ -89,18 +70,47 @@ export default function Sidebar({ collapsed, mobileOpen, onClose }: Props) {
       label: "Warehouse Inventory", href: "/inventory", Icon: Package,
     },
     {
+      label: "Customers", Icon: Users,
+      badge: (isAdmin && pendingApprovalsCount > 0) || pendingAlertCount > 0 ? (pendingApprovalsCount + pendingAlertCount) : undefined,
+      children: [
+        { label: "All Customers", href: "/customers", Icon: Users },
+        { label: "Add Customer", href: "/customers/new", Icon: Plus },
+        ...(isAdmin && pendingApprovalsCount > 0
+          ? [
+              {
+                label: "Customer Approvals",
+                href: "/admin/customer-approvals",
+                Icon: ShieldCheck,
+                badge: String(pendingApprovalsCount),
+                badgeColor: "#ea580c",
+              },
+            ]
+          : []),
+        ...(pendingAlertCount > 0
+          ? [
+              {
+                label: "Missed Alerts",
+                href: "/customers/alerts",
+                Icon: AlertTriangle,
+                badge: String(pendingAlertCount),
+                badgeColor: "#dc2626",
+              },
+            ]
+          : []),
+        { label: "Excel Import", href: "/customers/import", Icon: Upload },
+      ],
+    },
+    {
       label: "Finance", Icon: Receipt,
       children: [
         { label: "Invoices", href: "/finance/invoices", Icon: FileText },
         { label: "Payment Receipts", href: "/finance/payments", Icon: CreditCard },
-        { label: "Customer Advances", href: "/finance/advances", Icon: Wallet },
         { label: "Customer Ledger", href: "/finance/ledger", Icon: BookOpen },
+        { label: "Customer Advances", href: "/finance/advances", Icon: Wallet },
         ...(isAdmin
           ? [
               { label: "Outstanding Receivables", href: "/finance/outstanding", Icon: Receipt },
-              { label: "Opening Balances", href: "/finance/opening-balances", Icon: Upload },
               { label: "Credit Limits", href: "/finance/credit", Icon: Shield },
-              { label: "Payment Tenure", href: "/finance/tenure", Icon: Calendar },
             ]
           : []),
       ],
@@ -108,24 +118,23 @@ export default function Sidebar({ collapsed, mobileOpen, onClose }: Props) {
     {
       label: "Reports", Icon: BarChart2,
       children: [
-        { label: "Sales & Revenue", href: "/reports/sales", Icon: TrendingUp },
+        { label: "Daily Sales Report", href: "/reports/sales?tab=daily", Icon: TrendingUp },
+        { label: "Month Comparison", href: "/reports/sales?tab=comparison", Icon: BarChart2 },
+        { label: "Client Wise Savings", href: "/reports/sales?tab=savings", Icon: Percent },
         { label: "Delivery Operations", href: "/reports/deliveries", Icon: Truck },
         { label: "Cylinder Ledger", href: "/reports/cylinders", Icon: RotateCcw },
-        { label: "Financial Audit", href: "/reports/financial", Icon: PieChart },
-        { label: "Inactivity & Retention", href: "/reports/inactivity", Icon: AlertTriangle },
       ],
     },
-    // Master Settings is available to Admin
+    // Master Settings for Admin
     ...(isAdmin
       ? [
           {
-            label: "Master Settings", Icon: Settings,
+            label: "Settings", Icon: Settings,
             children: [
-              { label: "Basic Rates", href: "/products/basic-rates", Icon: Shield },
               { label: "Customer Rates", href: "/products/rates", Icon: Tag },
+              { label: "Basic Rates Master", href: "/products/basic-rates", Icon: Shield },
               { label: "Product Master", href: "/products", Icon: Package },
               { label: "Employees", href: "/admin/users", Icon: UserCog },
-              { label: "Audit Log", href: "/admin/audit", Icon: ScrollText },
               { label: "Agency Settings", href: "/settings", Icon: Settings },
             ],
           },

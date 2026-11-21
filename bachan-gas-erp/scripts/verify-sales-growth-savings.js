@@ -24,14 +24,13 @@ assert(storeContent.includes("INITIAL_REAL_PAYMENTS"), "INITIAL_REAL_PAYMENTS de
 assert(storeContent.includes("orders: INITIAL_REAL_ORDERS"), "useERPStore initializes orders with INITIAL_REAL_ORDERS");
 assert(storeContent.includes("invoices: INITIAL_REAL_INVOICES"), "useERPStore initializes invoices with INITIAL_REAL_INVOICES");
 
-// 2. Verify page.tsx exists and implements all 4 sub-reports
+// 2. Verify page.tsx exists and implements daily sales, month-over-month comparison, and client savings
 const pagePath = path.join(__dirname, '..', 'src', 'app', '(app)', 'reports', 'sales', 'page.tsx');
 const pageContent = fs.readFileSync(pagePath, 'utf8');
 
 assert(pageContent.includes("Daily Sales Report"), "Daily Sales Report section implemented");
-assert(pageContent.includes("Next Month Forecast & Indents"), "Next Month Forecast & Indents implemented ('Eg next month, after report')");
-assert(pageContent.includes("Growth Comparison"), "Growth Comparison implemented ('comparison after growth')");
-assert(pageContent.includes("Savings Per Client"), "Savings Per Client implemented ('saving per client')");
+assert(pageContent.includes("Comparison Over Month"), "Comparison Over Month from last month implemented");
+assert(pageContent.includes("Client Wise Saving Report"), "Client Wise Saving Report implemented");
 
 // 3. Test Daily Sales Math Logic
 const testOrders = [
