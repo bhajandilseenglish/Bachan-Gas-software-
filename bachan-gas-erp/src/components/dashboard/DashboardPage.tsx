@@ -115,7 +115,8 @@ export default function DashboardPage() {
     settings,
     missedOrderAlerts,
     followUpLogs,
-    evaluateInactivityAlerts
+    evaluateInactivityAlerts,
+    inTransitShipments,
   } = useERPStore();
 
   useEffect(() => {
@@ -173,10 +174,12 @@ export default function DashboardPage() {
   const hasOrderData = orders.length > 0;
 
   // ── 4 Dedicated Operational Sections KPIs (Handwritten Requirements) ──
-  // Section 1: Orders
+  // Section 1: Orders & In-Transit Supply
   const todaysOrdersCount = orders.length;
   const pendingOrdersCount = orders.filter(o => o.status !== "delivered" && o.status !== "cancelled").length;
   const todaysIssuedCylinders = orders.filter(o => o.status !== "cancelled").reduce((s, o) => s + (o.qtyIssued || o.totalQty), 0);
+  const inTransitCylindersTotal = (inTransitShipments || []).reduce((sum, s) => sum + (s.totalInTransit || 0), 0);
+  const activeShipmentsCount = (inTransitShipments || []).filter(s => s.status !== "fully_received").length;
 
   // Section 2: Cylinder Exchange
   const emptyReceivedToday = cylinderExchangeLedger.reduce((s, e) => s + e.emptyReceived, 0);
@@ -433,7 +436,7 @@ export default function DashboardPage() {
           </div>
           <Link href="/orders" style={{ fontSize: 11.5, color: "#1e3a8a", fontWeight: 700, textDecoration: "none" }}>View All Orders →</Link>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }} className="stat-grid-4">
           <MetCard
             title="Today's Orders"
             value={todaysOrdersCount.toString()}
@@ -458,6 +461,14 @@ export default function DashboardPage() {
             color="#7c3aed"
             href="/deliveries"
           />
+          <MetCard
+            title="In-Transit from Plants"
+            value={`${inTransitCylindersTotal} units`}
+            sub={`${activeShipmentsCount} vehicle shipments`}
+            Icon={Truck}
+            color="#ea580c"
+            href="/inventory"
+          />
         </div>
       </div>
 
@@ -470,7 +481,7 @@ export default function DashboardPage() {
             </div>
             <div style={{ fontSize: 11.5, color: "#64748b" }}>Empty cylinders collected back vs cylinders still with customers</div>
           </div>
-          <Link href="/reports/cylinders" style={{ fontSize: 11.5, color: "#0891b2", fontWeight: 700, textDecoration: "none" }}>Cylinder Ledger →</Link>
+          <Link href="/cylinder-returns" style={{ fontSize: 11.5, color: "#0891b2", fontWeight: 700, textDecoration: "none" }}>Cylinder Returns Portal →</Link>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
           <MetCard

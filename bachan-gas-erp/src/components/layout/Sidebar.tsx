@@ -49,6 +49,7 @@ export default function Sidebar({ collapsed, mobileOpen, onClose }: Props) {
       children: [
         { label: "Add Customer", href: "/customers/new", Icon: Plus },
         { label: "All Customers", href: "/customers", Icon: Users },
+        { label: "Pilot Accounts (10)", href: "/customers/pilot", Icon: ShieldCheck },
         ...(isAdmin
           ? [
               {

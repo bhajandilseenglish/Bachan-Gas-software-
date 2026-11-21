@@ -62,16 +62,16 @@ function NewOrderForm() {
   useEffect(() => {
     if (customerId && prodId) {
       const rateObj = getApplicableRate(customerId, prodId);
-      if (rateObj.isConfigured) {
+      if (rateObj.isConfigured && rateObj.rate > 0) {
         setRate(rateObj.rate);
         setRateSource(rateObj.source);
       } else {
         setRate(prod ? prod.rate : 0);
-        setRateSource("none");
+        setRateSource(prod && prod.rate > 0 ? "standard" : "none");
       }
     } else if (prod) {
       setRate(prod.rate);
-      setRateSource("none");
+      setRateSource(prod.rate > 0 ? "standard" : "none");
     }
   }, [customerId, prodId, getApplicableRate, prod, customerRates]);
 
@@ -478,12 +478,13 @@ function NewOrderForm() {
                 <input
                   type="number"
                   step="0.01"
-                  readOnly={!isAdmin && rateSource === "customer"}
+                  readOnly={!isAdmin}
                   value={rate}
                   onChange={e => setRate(parseFloat(e.target.value) || 0)}
                   style={{
                     width: "100%", padding: "9px 12px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13,
-                    background: rate <= 0 ? "#fee2e2" : "#f8fafc", fontWeight: 800, color: "#1e293b"
+                    background: !isAdmin ? "#f1f5f9" : (rate <= 0 ? "#fee2e2" : "#f8fafc"), fontWeight: 800, color: "#1e293b",
+                    cursor: !isAdmin ? "not-allowed" : "text"
                   }}
                 />
                 <span style={{ fontSize: 11, color: "#64748b", marginTop: 3, display: "block" }}>

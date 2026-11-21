@@ -25,21 +25,25 @@ export default function CustomerRatesPage() {
   // Form State for Admin
   const [selectedCustomerId, setSelectedCustomerId] = useState(customers[0]?.id || "");
   const [selectedProductId, setSelectedProductId] = useState(activeSixProducts[0]?.id || "");
-  const [basicRateInput, setBasicRateInput] = useState("");
+  const [ratePerKgInput, setRatePerKgInput] = useState("100");
   const [successMsg, setSuccessMsg] = useState("");
 
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId) || customers[0];
   const selectedProduct = activeSixProducts.find(p => p.id === selectedProductId) || activeSixProducts[0];
 
-  // Automatic Read-Only Rate per KG calculation
+  // Automatic Calculation: Rate per Unit = Rate per KG * Reference Weight
   const productRefWeight = selectedProduct?.referenceWeightKg || 19;
-  const calculatedRatePerKg = basicRateInput && !isNaN(Number(basicRateInput)) && Number(basicRateInput) > 0
-    ? (Number(basicRateInput) / productRefWeight).toFixed(2)
-    : "—";
+  const numRatePerKg = parseFloat(ratePerKgInput) || 0;
+  const calculatedRatePerUnit = Math.round(numRatePerKg * productRefWeight * 100) / 100;
+  const calculatedGstPerUnit = Math.round((calculatedRatePerUnit * 18) / 100);
+  const calculatedGrossPerUnit = calculatedRatePerUnit + calculatedGstPerUnit;
 
   const handleSaveRateAdmin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCustomer || !selectedProduct || !basicRateInput) return;
+    if (!selectedCustomer || !selectedProduct || numRatePerKg <= 0) {
+      alert("Please enter a valid rate per KG.");
+      return;
+    }
 
     setCustomerRate({
       customerId: selectedCustomer.id,
@@ -49,20 +53,21 @@ export default function CustomerRatesPage() {
       productId: selectedProduct.id,
       productName: selectedProduct.name,
       defaultRate: selectedProduct.rate,
-      agreedRate: Number(basicRateInput),
+      ratePerKg: numRatePerKg,
+      agreedRate: calculatedRatePerUnit,
       referenceWeightKg: productRefWeight,
-      calculatedRatePerKg: Number(calculatedRatePerKg),
+      calculatedRatePerKg: numRatePerKg,
       gstRatePct: 18,
       effectiveFrom: new Date().toISOString().split("T")[0],
       validTill: "31 Mar 2027",
       approvedBy: "Bachan Admin",
     });
 
-    setSuccessMsg(`Customer rate for ${selectedCustomer.name} configured successfully!`);
+    setSuccessMsg(`Customer rate for ${selectedCustomer.name} configured successfully at ₹${numRatePerKg.toFixed(2)}/kg (₹${calculatedRatePerUnit.toLocaleString("en-IN")}/unit)!`);
     setTimeout(() => {
       setShowModal(false);
       setSuccessMsg("");
-      setBasicRateInput("");
+      setRatePerKgInput("100");
     }, 1200);
   };
 
@@ -156,7 +161,7 @@ export default function CustomerRatesPage() {
             <button
               onClick={() => {
                 setShowModal(true);
-                setBasicRateInput("");
+                setRatePerKgInput("100");
               }}
               className="btn btn-primary"
               style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, padding: "8px 14px" }}
@@ -348,7 +353,8 @@ export default function CustomerRatesPage() {
                               onClick={() => {
                                 setSelectedCustomerId(rate.customerId);
                                 setSelectedProductId(rate.productId);
-                                setBasicRateInput(String(rate.agreedRate));
+                                const kg = rate.ratePerKg || (rate.agreedRate / (rate.referenceWeightKg || 19));
+                                setRatePerKgInput(String(kg.toFixed(2)));
                                 setShowModal(true);
                               }}
                               style={{
@@ -381,9 +387,9 @@ export default function CustomerRatesPage() {
           <div style={{ background: "#fff", borderRadius: 16, maxWidth: 520, width: "100%", padding: 24, boxShadow: "0 20px 40px rgba(0,0,0,.25)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
               <div>
-                <h2 style={{ fontSize: 17, fontWeight: 800, color: "#0f172a" }}>Configure Customer Rate</h2>
+                <h2 style={{ fontSize: 17, fontWeight: 800, color: "#0f172a" }}>Configure Customer Rate Master</h2>
                 <p style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
-                  Set GST-exclusive basic rate per cylinder. Rate per KG calculates automatically.
+                  Admin configures rate per KG. Basic rate per cylinder calculates automatically: <strong>Rate per Unit = Rate per KG × Reference Weight</strong>.
                 </p>
               </div>
               <button
@@ -435,40 +441,46 @@ export default function CustomerRatesPage() {
                 </select>
               </div>
 
+              {/* PRIMARY INPUT: Rate per KG */}
               <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#334155", marginBottom: 4 }}>
-                  Basic Rate per Cylinder / Unit (₹) <span style={{ color: "#dc2626" }}>*</span>
+                <label style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>
+                  Approved Customer Rate per KG (₹/kg) * <span style={{ color: "#dc2626" }}>*</span>
                 </label>
-                <input
-                  type="number"
-                  required
-                  step="0.01"
-                  min="1"
-                  value={basicRateInput}
-                  onChange={e => setBasicRateInput(e.target.value)}
-                  placeholder="e.g. 1850.00"
-                  style={{ width: "100%", padding: "8px 12px", fontSize: 14, border: "1.5px solid #ea580c", borderRadius: 8, outline: "none" }}
-                />
-                <span style={{ fontSize: 11, color: "#64748b", marginTop: 2, display: "block" }}>
-                  Basic price excluding GST. 18% GST (CGST 9% + SGST 9%) will be added to the invoice.
+                <div style={{ position: "relative" }}>
+                  <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14, fontWeight: 700, color: "#64748b" }}>₹</span>
+                  <input
+                    type="number"
+                    required
+                    step="0.01"
+                    min="1"
+                    value={ratePerKgInput}
+                    onChange={e => setRatePerKgInput(e.target.value)}
+                    placeholder="e.g. 98.00"
+                    style={{ width: "100%", boxSizing: "border-box", padding: "9px 12px 9px 28px", fontSize: 15, fontWeight: 800, border: "2px solid #2563eb", borderRadius: 8, outline: "none", color: "#0f172a" }}
+                  />
+                  <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 12, fontWeight: 600, color: "#64748b" }}>/ kg</span>
+                </div>
+                <span style={{ fontSize: 11, color: "#64748b", marginTop: 4, display: "block" }}>
+                  GST 18% Exclusive price per kilogram negotiated for this customer.
                 </span>
               </div>
 
-              {/* Read-Only Rate per KG Display Card */}
-              <div style={{ background: "#f0f9ff", border: "1.5px solid #bae6fd", borderRadius: 10, padding: 12 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#0369a1" }}>
-                      Automatic Calculated Rate per KG
-                    </span>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: "#0284c7", marginTop: 2 }}>
-                      {calculatedRatePerKg !== "—" ? `₹${calculatedRatePerKg} / kg` : "—"}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right", fontSize: 11, color: "#0284c7" }}>
-                    <div>Ref Weight: <strong>{productRefWeight} kg</strong></div>
-                    <div>Formula: Rate ÷ {productRefWeight}</div>
-                  </div>
+              {/* Dynamic Calculation Box */}
+              <div style={{ background: "#f0fdf4", border: "1.5px solid #bbf7d0", borderRadius: 10, padding: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#166534", marginBottom: 6 }}>
+                  Dynamic System Calculation
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#334155", marginBottom: 4 }}>
+                  <span>Rate per Cylinder ({productRefWeight} kg × ₹{numRatePerKg.toFixed(2)}):</span>
+                  <strong style={{ color: "#0f172a" }}>₹{calculatedRatePerUnit.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#334155", marginBottom: 4 }}>
+                  <span>Statutory 18% GST:</span>
+                  <strong style={{ color: "#2563eb" }}>+ ₹{calculatedGstPerUnit.toLocaleString("en-IN")}</strong>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 800, color: "#15803d", paddingTop: 6, borderTop: "1px dashed #86efac" }}>
+                  <span>Gross Invoice Rate:</span>
+                  <span>₹{calculatedGrossPerUnit.toLocaleString("en-IN")}</span>
                 </div>
               </div>
 
@@ -476,16 +488,15 @@ export default function CustomerRatesPage() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #cbd5e1", background: "#fff", fontSize: 13, cursor: "pointer" }}
+                  style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #cbd5e1", background: "#fff", fontSize: 13, cursor: "pointer", color: "#475569" }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-primary"
-                  style={{ padding: "8px 16px", fontSize: 13, fontWeight: 700 }}
+                  style={{ padding: "8px 18px", borderRadius: 8, background: "#2563eb", color: "#fff", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
                 >
-                  Save Approved Customer Rate
+                  Save Customer Rate
                 </button>
               </div>
             </form>

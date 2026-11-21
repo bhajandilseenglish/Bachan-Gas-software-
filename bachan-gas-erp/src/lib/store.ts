@@ -170,6 +170,11 @@ export interface Customer {
   alert_pause_reason?: string;
   contacted_status?: "pending_contact" | "contacted" | "resumed";
   last_follow_up_date?: string;
+
+  // Pilot Customer Workflow
+  is_pilot?: boolean;
+  pilot_status?: "active_pilot" | "staging_ready" | "not_pilot";
+  pilot_notes?: string;
 }
 
 export interface CylinderProduct {
@@ -179,6 +184,7 @@ export interface CylinderProduct {
   type: "Commercial" | "Domestic" | "Industrial";
   sku: string;
   rate: number; // Basic rate per cylinder/unit (GST-exclusive)
+  ratePerKg?: number; // Basic rate per KG (GST-exclusive)
   tax: number;  // Statutory 18% GST
   hsn: string;
   active: boolean;
@@ -192,6 +198,8 @@ export interface BasicRateHistoryItem {
   productCode: string;
   productName: string;
   basicRate: number; // GST-exclusive rate per cylinder
+  basicRatePerKg?: number; // GST-exclusive rate per KG
+  referenceWeightKg?: number;
   effectiveFrom: string;
   updatedBy: string;
   updatedAt: string;
@@ -208,6 +216,7 @@ export interface CustomerRate {
   productName: string;
   defaultRate: number;
   agreedRate: number; // Basic rate per cylinder/unit
+  ratePerKg?: number; // Approved Customer Rate per KG
   referenceWeightKg?: number; // Product Reference Weight in kg
   calculatedRatePerKg?: number; // Calculated Rate per KG = agreedRate / referenceWeightKg
   gstRatePct?: number; // Statutory 18% GST
@@ -215,7 +224,7 @@ export interface CustomerRate {
   effectiveFrom: string;
   validTill: string;
   approvedBy: string;
-  rateHistory?: { rate: number; effectiveFrom: string; approvedBy: string; changedAt: string; notes?: string }[];
+  rateHistory?: { rate: number; ratePerKg?: number; effectiveFrom: string; approvedBy: string; changedAt: string; notes?: string }[];
 }
 
 export interface ERPUser {
@@ -407,6 +416,48 @@ export interface StockReconciliationRecord {
   approvedBy?: string;
   approvedAt?: string;
   adjustmentMovementId?: string;
+}
+
+export interface InTransitShipmentItem {
+  productId: string;
+  productName: string;
+  productCode: string;
+  referenceWeightKg?: number;
+  qtyDispatched: number;
+  qtyReceived: number;
+  qtyInTransit: number;
+}
+
+export interface InTransitReceiptLog {
+  id: string;
+  receiptDate: string;
+  items: { productId: string; productName?: string; qtyReceived: number }[];
+  totalReceived: number;
+  condition?: string;
+  receivedBy: string;
+  remarks?: string;
+  stockMovementId?: string;
+}
+
+export interface InTransitShipment {
+  id: string;
+  shipmentNum: string; // e.g. BGS-SHP-2026-00001
+  supplierSource: string; // e.g. "IOCL Bottling Plant, Jalandhar"
+  warehouseDestination: string; // e.g. "Main Godown, Ludhiana"
+  items: InTransitShipmentItem[];
+  totalDispatched: number;
+  totalReceived: number;
+  totalInTransit: number;
+  dispatchDate: string; // YYYY-MM-DD
+  expectedArrivalDate: string; // YYYY-MM-DD
+  transporter: string;
+  vehicleNumber: string;
+  challanNumber: string; // Reference Number
+  status: "planned" | "dispatched" | "in_transit" | "partially_received" | "fully_received" | "cancelled";
+  recordedBy: string;
+  remarks?: string;
+  createdAt: string;
+  receiptHistory: InTransitReceiptLog[];
 }
 
 export interface MissedOrderAlert {
@@ -670,12 +721,12 @@ export interface StaffUser {
 
 // ── EXACTLY SIX ACTIVE LPG PRODUCTS (Per-Unit / Cylinder, 18% GST) ─────────
 export const EXACT_SIX_ACTIVE_PRODUCTS: CylinderProduct[] = [
-  { id: "p-lot-475", code: "LPG-475-LOT", name: "47.5kg LOT", type: "Commercial", sku: "BGS-LOT-475", rate: 0, tax: 18, hsn: "27111900", active: true, referenceWeightKg: 47.5 },
-  { id: "p-vot-475", code: "LPG-475-VOT", name: "47.5kg VOT", type: "Commercial", sku: "BGS-VOT-475", rate: 0, tax: 18, hsn: "27111900", active: true, referenceWeightKg: 47.5 },
-  { id: "p-jmb-425", code: "LPG-425-JUMBO", name: "425kg jumbo", type: "Commercial", sku: "BGS-JMB-425", rate: 0, tax: 18, hsn: "27111900", active: true, referenceWeightKg: 425.0 },
-  { id: "p-nno-190", code: "LPG-190-NANO", name: "19kg nano cut", type: "Commercial", sku: "BGS-NNO-190", rate: 0, tax: 18, hsn: "27111900", active: true, referenceWeightKg: 19.0 },
-  { id: "p-xtj-190", code: "LPG-190-XTRATEJ", name: "19 kg extra tej", type: "Commercial", sku: "BGS-XTJ-190", rate: 0, tax: 18, hsn: "27111900", active: true, referenceWeightKg: 19.0 },
-  { id: "p-nrm-190", code: "LPG-190-NORMAL", name: "19 kg normal", type: "Commercial", sku: "BGS-NRM-190", rate: 0, tax: 18, hsn: "27111900", active: true, referenceWeightKg: 19.0 },
+  { id: "p-lot-475", code: "LPG-475-LOT", name: "47.5kg LOT", type: "Commercial", sku: "BGS-LOT-475", rate: 4750, ratePerKg: 100, tax: 18, hsn: "27111900", active: true, referenceWeightKg: 47.5 },
+  { id: "p-vot-475", code: "LPG-475-VOT", name: "47.5kg VOT", type: "Commercial", sku: "BGS-VOT-475", rate: 4750, ratePerKg: 100, tax: 18, hsn: "27111900", active: true, referenceWeightKg: 47.5 },
+  { id: "p-jmb-425", code: "LPG-425-JUMBO", name: "425kg jumbo", type: "Commercial", sku: "BGS-JMB-425", rate: 42500, ratePerKg: 100, tax: 18, hsn: "27111900", active: true, referenceWeightKg: 425.0 },
+  { id: "p-nno-190", code: "LPG-190-NANO", name: "19kg nano cut", type: "Commercial", sku: "BGS-NNO-190", rate: 1900, ratePerKg: 100, tax: 18, hsn: "27111900", active: true, referenceWeightKg: 19.0 },
+  { id: "p-xtj-190", code: "LPG-190-XTRATEJ", name: "19 kg extra tej", type: "Commercial", sku: "BGS-XTJ-190", rate: 1900, ratePerKg: 100, tax: 18, hsn: "27111900", active: true, referenceWeightKg: 19.0 },
+  { id: "p-nrm-190", code: "LPG-190-NORMAL", name: "19 kg normal", type: "Commercial", sku: "BGS-NRM-190", rate: 1900, ratePerKg: 100, tax: 18, hsn: "27111900", active: true, referenceWeightKg: 19.0 },
 ];
 
 export const INITIAL_ERP_USERS: ERPUser[] = [
@@ -749,14 +800,173 @@ export const REAL_AGENCY_SETTINGS: AgencySettings = {
   allowStandardRateFallback: true,
 };
 
-// Initial Basic Rate History for the 6 approved products
+// Initial Basic Rate History for the 6 approved products with Verified Reference Weight & Rate per KG
 export const INITIAL_BASIC_RATE_HISTORY: BasicRateHistoryItem[] = [
-  { id: "brh-1", productId: "p-lot-475", productCode: "LPG-475-LOT", productName: "47.5kg LOT", basicRate: 0, effectiveFrom: "2026-11-01", updatedBy: "Bachan Admin", updatedAt: "01 Nov 2026", notes: "Initial Approved Master Rate" },
-  { id: "brh-2", productId: "p-vot-475", productCode: "LPG-475-VOT", productName: "47.5kg VOT", basicRate: 0, effectiveFrom: "2026-11-01", updatedBy: "Bachan Admin", updatedAt: "01 Nov 2026", notes: "Initial Approved Master Rate" },
-  { id: "brh-3", productId: "p-jmb-425", productCode: "LPG-425-JUMBO", productName: "425kg jumbo", basicRate: 0, effectiveFrom: "2026-11-01", updatedBy: "Bachan Admin", updatedAt: "01 Nov 2026", notes: "Initial Approved Master Rate" },
-  { id: "brh-4", productId: "p-nno-190", productCode: "LPG-190-NANO", productName: "19kg nano cut", basicRate: 0, effectiveFrom: "2026-11-01", updatedBy: "Bachan Admin", updatedAt: "01 Nov 2026", notes: "Initial Approved Master Rate" },
-  { id: "brh-5", productId: "p-xtj-190", productCode: "LPG-190-XTRATEJ", productName: "19 kg extra tej", basicRate: 0, effectiveFrom: "2026-11-01", updatedBy: "Bachan Admin", updatedAt: "01 Nov 2026", notes: "Initial Approved Master Rate" },
-  { id: "brh-6", productId: "p-nrm-190", productCode: "LPG-190-NORMAL", productName: "19 kg normal", basicRate: 0, effectiveFrom: "2026-11-01", updatedBy: "Bachan Admin", updatedAt: "01 Nov 2026", notes: "Initial Approved Master Rate" },
+  { id: "brh-1", productId: "p-lot-475", productCode: "LPG-475-LOT", productName: "47.5kg LOT", basicRate: 4750, basicRatePerKg: 100, referenceWeightKg: 47.5, effectiveFrom: "2026-11-01", updatedBy: "Bachan Admin", updatedAt: "01 Nov 2026", notes: "Approved Master Basic Rate (₹100.00/kg)" },
+  { id: "brh-2", productId: "p-vot-475", productCode: "LPG-475-VOT", productName: "47.5kg VOT", basicRate: 4750, basicRatePerKg: 100, referenceWeightKg: 47.5, effectiveFrom: "2026-11-01", updatedBy: "Bachan Admin", updatedAt: "01 Nov 2026", notes: "Approved Master Basic Rate (₹100.00/kg)" },
+  { id: "brh-3", productId: "p-jmb-425", productCode: "LPG-425-JUMBO", productName: "425kg jumbo", basicRate: 42500, basicRatePerKg: 100, referenceWeightKg: 425.0, effectiveFrom: "2026-11-01", updatedBy: "Bachan Admin", updatedAt: "01 Nov 2026", notes: "Approved Master Basic Rate (₹100.00/kg)" },
+  { id: "brh-4", productId: "p-nno-190", productCode: "LPG-190-NANO", productName: "19kg nano cut", basicRate: 1900, basicRatePerKg: 100, referenceWeightKg: 19.0, effectiveFrom: "2026-11-01", updatedBy: "Bachan Admin", updatedAt: "01 Nov 2026", notes: "Approved Master Basic Rate (₹100.00/kg)" },
+  { id: "brh-5", productId: "p-xtj-190", productCode: "LPG-190-XTRATEJ", productName: "19 kg extra tej", basicRate: 1900, basicRatePerKg: 100, referenceWeightKg: 19.0, effectiveFrom: "2026-11-01", updatedBy: "Bachan Admin", updatedAt: "01 Nov 2026", notes: "Approved Master Basic Rate (₹100.00/kg)" },
+  { id: "brh-6", productId: "p-nrm-190", productCode: "LPG-190-NORMAL", productName: "19 kg normal", basicRate: 1900, basicRatePerKg: 100, referenceWeightKg: 19.0, effectiveFrom: "2026-11-01", updatedBy: "Bachan Admin", updatedAt: "01 Nov 2026", notes: "Approved Master Basic Rate (₹100.00/kg)" },
+];
+
+// Initial Pilot Customer Rates (Client Change 3 & 4)
+export const INITIAL_CUSTOMER_RATES: CustomerRate[] = [
+  {
+    id: "rate-init-1",
+    customerId: "1",
+    customerName: "RAMU",
+    customerCode: "CX2988723",
+    sapCode: "SAP-IND-100000",
+    productId: "p-nrm-190",
+    productName: "19 kg normal",
+    defaultRate: 1900,
+    agreedRate: 1862,
+    ratePerKg: 98.0,
+    referenceWeightKg: 19.0,
+    calculatedRatePerKg: 98.0,
+    gstRatePct: 18,
+    effectiveFrom: "2026-11-01",
+    validTill: "31 Mar 2027",
+    approvedBy: "Bachan Admin",
+  },
+  {
+    id: "rate-init-2",
+    customerId: "2",
+    customerName: "VISHAL KUMAR",
+    customerCode: "CX3721006",
+    sapCode: "SAP-IND-100001",
+    productId: "p-nrm-190",
+    productName: "19 kg normal",
+    defaultRate: 1900,
+    agreedRate: 1881,
+    ratePerKg: 99.0,
+    referenceWeightKg: 19.0,
+    calculatedRatePerKg: 99.0,
+    gstRatePct: 18,
+    effectiveFrom: "2026-11-01",
+    validTill: "31 Mar 2027",
+    approvedBy: "Bachan Admin",
+  },
+  {
+    id: "rate-init-3",
+    customerId: "3",
+    customerName: "MANPEET SINGH",
+    customerCode: "CX5056563",
+    sapCode: "SAP-IND-100002",
+    productId: "p-lot-475",
+    productName: "47.5kg LOT",
+    defaultRate: 4750,
+    agreedRate: 4607.5,
+    ratePerKg: 97.0,
+    referenceWeightKg: 47.5,
+    calculatedRatePerKg: 97.0,
+    gstRatePct: 18,
+    effectiveFrom: "2026-11-01",
+    validTill: "31 Mar 2027",
+    approvedBy: "Bachan Admin",
+  },
+  {
+    id: "rate-init-4",
+    customerId: "4",
+    customerName: "BHUPINDER SINGH",
+    customerCode: "CX5516154",
+    sapCode: "SAP-IND-100003",
+    productId: "p-lot-475",
+    productName: "47.5kg LOT",
+    defaultRate: 4750,
+    agreedRate: 4560,
+    ratePerKg: 96.0,
+    referenceWeightKg: 47.5,
+    calculatedRatePerKg: 96.0,
+    gstRatePct: 18,
+    effectiveFrom: "2026-11-01",
+    validTill: "31 Mar 2027",
+    approvedBy: "Bachan Admin",
+  },
+];
+
+// Initial In-Transit Shipments (Client Change 2)
+export const INITIAL_IN_TRANSIT_SHIPMENTS: InTransitShipment[] = [
+  {
+    id: "shp-2026-001",
+    shipmentNum: "BGS-SHP-2026-00001",
+    supplierSource: "IOCL Bottling Plant, Jalandhar",
+    warehouseDestination: "Main Godown, Ludhiana",
+    items: [
+      {
+        productId: "p-nrm-190",
+        productName: "19 kg normal",
+        productCode: "LPG-190-NORMAL",
+        referenceWeightKg: 19.0,
+        qtyDispatched: 100,
+        qtyReceived: 60,
+        qtyInTransit: 40,
+      },
+    ],
+    totalDispatched: 100,
+    totalReceived: 60,
+    totalInTransit: 40,
+    dispatchDate: "2026-11-20",
+    expectedArrivalDate: "2026-11-21",
+    transporter: "Punjab Logistics Express",
+    vehicleNumber: "PB-08-AX-9941",
+    challanNumber: "CH-IOCL-98442",
+    status: "partially_received",
+    recordedBy: "Bachan Admin",
+    remarks: "Truck PB-08-AX-9941 arrived at gate. 60 units unloaded into godown; 40 units remaining in transit/next trip.",
+    createdAt: "2026-11-20 14:30",
+    receiptHistory: [
+      {
+        id: "rcpt-01",
+        receiptDate: "2026-11-20",
+        items: [{ productId: "p-nrm-190", productName: "19 kg normal", qtyReceived: 60 }],
+        totalReceived: 60,
+        condition: "Good - Sound Valves",
+        receivedBy: "Operations Staff",
+        remarks: "First batch unloaded at bay 2",
+      },
+    ],
+  },
+  {
+    id: "shp-2026-002",
+    shipmentNum: "BGS-SHP-2026-00002",
+    supplierSource: "IOCL LPG Bottling Plant, Bathinda",
+    warehouseDestination: "Main Godown, Ludhiana",
+    items: [
+      {
+        productId: "p-lot-475",
+        productName: "47.5kg LOT",
+        productCode: "LPG-475-LOT",
+        referenceWeightKg: 47.5,
+        qtyDispatched: 40,
+        qtyReceived: 0,
+        qtyInTransit: 40,
+      },
+      {
+        productId: "p-xtj-190",
+        productName: "19 kg extra tej",
+        productCode: "LPG-190-XTRATEJ",
+        referenceWeightKg: 19.0,
+        qtyDispatched: 60,
+        qtyReceived: 0,
+        qtyInTransit: 60,
+      },
+    ],
+    totalDispatched: 100,
+    totalReceived: 0,
+    totalInTransit: 100,
+    dispatchDate: "2026-11-21",
+    expectedArrivalDate: "2026-11-21",
+    transporter: "Malwa Freight Carriers",
+    vehicleNumber: "PB-03-BT-3120",
+    challanNumber: "CH-IOCL-98910",
+    status: "in_transit",
+    recordedBy: "Operations Staff",
+    remarks: "Dispatched from Bathinda terminal at 08:00 AM. Driver reported in-transit near Raikot.",
+    createdAt: "2026-11-21 08:30",
+    receiptHistory: [],
+  },
 ];
 
 // Map real commercial records from client's 23.xlsx register
@@ -768,6 +978,10 @@ export const INITIAL_REAL_CUSTOMERS: Customer[] = (realCommercialData as any[]).
   const unclassified_reason = !hasValidPhone ? "Missing or incomplete contact phone number" : undefined;
   const formattedRefillDate = r.last_refill ? formatExcelDate(r.last_refill) : "—";
   const sanitizedAddress = cleanAddress(r.address);
+
+  // First 10 commercial accounts selected for the client verified pilot
+  const isPilot = idx < 10 && category === "commercial";
+  const pilotCreditLimit = isPilot ? (idx === 0 ? 100000 : (idx === 1 ? 75000 : 50000)) : null;
 
   return {
     id: String(idx + 1),
@@ -791,25 +1005,28 @@ export const INITIAL_REAL_CUSTOMERS: Customer[] = (realCommercialData as any[]).
     status: "active",
     verification_status,
     unclassified_reason,
-    credit_limit: null,
-    payment_tenure_days: null,
-    payment_terms: "Not Configured",
-    outstanding: null,
-    advance_balance: 0,
+    is_pilot: isPilot,
+    pilot_status: isPilot ? ("active_pilot" as const) : undefined,
+    pilot_notes: isPilot ? "Selected for 10-customer verified commercial pilot" : undefined,
+    credit_limit: pilotCreditLimit,
+    payment_tenure_days: isPilot ? 15 : null,
+    payment_terms: isPilot ? "Net 15 Days" : "Not Configured",
+    outstanding: isPilot ? (idx === 0 ? 18620 : 0) : null,
+    advance_balance: isPilot && idx === 1 ? 25000 : 0,
     overdue: null,
-    last_payment: null,
-    last_payment_date: "—",
+    last_payment: isPilot && idx === 0 ? 15000 : null,
+    last_payment_date: isPilot && idx === 0 ? "2026-11-10" : "—",
     last_supply: r.last_refill ? `Refill Date: ${formattedRefillDate}` : "—",
     last_supply_date: formattedRefillDate !== "—" ? formattedRefillDate : undefined,
     last_supply_qty: 0,
     last_supply_product: r.product || "19 kg normal",
     pending_orders: 0,
     created_at: "2026-11-03",
-    is_financial_configured: false,
-    total_filled_delivered: 0,
-    total_empty_received: 0,
-    empty_cylinders_pending: 0,
-    ordering_frequency: "not_configured",
+    is_financial_configured: isPilot,
+    total_filled_delivered: isPilot ? 20 : 0,
+    total_empty_received: isPilot ? 15 : 0,
+    empty_cylinders_pending: isPilot ? 5 : 0,
+    ordering_frequency: isPilot ? "weekly" : "not_configured",
     missed_order_alert_active: false,
     alert_paused: false,
   };
@@ -890,6 +1107,7 @@ interface ERPStore {
   // Warehouse Inventory Management
   warehouseStock: WarehouseStockItem[];
   stockMovements: StockMovement[];
+  inTransitShipments: InTransitShipment[];
   recordStockReceipt: (data: { date: string; productId: string; qty: number; refNum?: string; supplierSource?: string; warehouseLocation?: string; recordedBy?: string; remarks?: string }) => StockMovement;
   recordStockAdjustment: (data: { date: string; productId: string; qty: number; isAddition: boolean; reason: string; recordedBy?: string }) => StockMovement;
   approveStockAdjustment: (id: string, approvedBy?: string) => void;
@@ -953,12 +1171,40 @@ interface ERPStore {
   addProduct: (prod: Omit<CylinderProduct, "id">) => CylinderProduct;
   updateProduct: (id: string, updates: Partial<CylinderProduct>) => void;
   toggleProduct: (id: string) => void;
-  updateBasicRate: (data: { productId: string; basicRate: number; effectiveFrom: string; notes?: string; updatedBy?: string }) => void;
+  updateBasicRate: (data: { productId: string; basicRatePerKg?: number; basicRate?: number; effectiveFrom: string; notes?: string; updatedBy?: string }) => void;
 
   // Customer Rate Actions
   setCustomerRate: (rate: Omit<CustomerRate, "id">) => void;
-  getApplicableRate: (customerId: string, productId: string) => { rate: number; isConfigured: boolean; source: "customer" | "standard" | "none" };
+  getApplicableRate: (customerId: string, productId: string) => { rate: number; ratePerKg: number; referenceWeightKg: number; isConfigured: boolean; source: "customer" | "standard" | "none" };
   isRateConfigured: (customerId: string, productId: string) => boolean;
+
+  // In-Transit Inventory Actions
+  createInTransitShipment: (data: {
+    supplierSource: string;
+    warehouseDestination?: string;
+    dispatchDate: string;
+    expectedArrivalDate: string;
+    transporter: string;
+    vehicleNumber: string;
+    challanNumber: string;
+    remarks?: string;
+    recordedBy?: string;
+    items: { productId: string; qtyDispatched: number }[];
+  }) => InTransitShipment;
+  recordShipmentReceipt: (shipmentId: string, receiptData: {
+    receiptDate: string;
+    items: { productId: string; qtyReceived: number }[];
+    condition?: string;
+    remarks?: string;
+    receivedBy?: string;
+  }) => void;
+  getInTransitTotals: () => {
+    totalShipments: number;
+    totalInTransitQty: number;
+    expectedTodayQty: number;
+    partiallyReceivedCount: number;
+    overdueCount: number;
+  };
 
   // Rate Change Request Workflow
   requestRateChange: (data: { customerId: string; productId: string; requestedRate: number; reason: string; requestedBy?: string }) => RateChangeRequest;
@@ -1082,11 +1328,12 @@ export const useERPStore = create<ERPStore>()(
       customerApprovals: [],
       warehouseStock: INITIAL_WAREHOUSE_STOCK,
       stockMovements: [],
+      inTransitShipments: INITIAL_IN_TRANSIT_SHIPMENTS,
 
       customers: INITIAL_REAL_CUSTOMERS,
       products: ALL_PRODUCTS_INITIAL,
       basicRateHistory: INITIAL_BASIC_RATE_HISTORY,
-      customerRates: [],
+      customerRates: INITIAL_CUSTOMER_RATES,
       rateChangeRequests: [],
       cylinderExchangeLedger: [],
       missedOrderAlerts: [],
@@ -1618,16 +1865,32 @@ export const useERPStore = create<ERPStore>()(
         }));
       },
 
-      updateBasicRate: ({ productId, basicRate, effectiveFrom, notes, updatedBy }) => {
+      updateBasicRate: ({ productId, basicRatePerKg, basicRate, effectiveFrom, notes, updatedBy }) => {
         const prod = get().products.find((p) => p.id === productId);
         if (!prod) throw new Error("Product not found.");
+
+        const refWeight = prod.referenceWeightKg || 19;
+        let finalRatePerKg: number;
+        let finalBasicRate: number;
+
+        if (basicRatePerKg !== undefined && basicRatePerKg > 0) {
+          finalRatePerKg = Number(basicRatePerKg.toFixed(2));
+          finalBasicRate = Number((finalRatePerKg * refWeight).toFixed(2));
+        } else if (basicRate !== undefined && basicRate > 0) {
+          finalBasicRate = Number(basicRate.toFixed(2));
+          finalRatePerKg = Number((finalBasicRate / refWeight).toFixed(2));
+        } else {
+          throw new Error("A valid basic rate per kg or per cylinder is required.");
+        }
 
         const historyItem: BasicRateHistoryItem = {
           id: `brh-${Date.now()}`,
           productId: prod.id,
           productCode: prod.code,
           productName: prod.name,
-          basicRate,
+          basicRate: finalBasicRate,
+          basicRatePerKg: finalRatePerKg,
+          referenceWeightKg: refWeight,
           effectiveFrom: effectiveFrom || getKolkataDateString(),
           updatedBy: updatedBy || (get().currentUserRole === "admin" ? "Bachan Admin" : "Staff User"),
           updatedAt: getKolkataFormattedDate(),
@@ -1635,7 +1898,9 @@ export const useERPStore = create<ERPStore>()(
         };
 
         set((state) => ({
-          products: state.products.map((p) => (p.id === productId ? { ...p, rate: basicRate } : p)),
+          products: state.products.map((p) =>
+            p.id === productId ? { ...p, rate: finalBasicRate, ratePerKg: finalRatePerKg } : p
+          ),
           basicRateHistory: [historyItem, ...state.basicRateHistory],
           auditLogs: [
             {
@@ -1644,7 +1909,7 @@ export const useERPStore = create<ERPStore>()(
               user: updatedBy || "Bachan Admin",
               action: "update",
               resource: `Basic Rate Master: ${prod.name}`,
-              details: `Configured approved basic rate for ${prod.name} (${prod.code}) to ₹${basicRate.toLocaleString("en-IN")}/cylinder (GST 18% exclusive). Effective: ${historyItem.effectiveFrom}`,
+              details: `Configured approved basic rate for ${prod.name} (${prod.code}) to ₹${finalRatePerKg}/kg (₹${finalBasicRate.toLocaleString("en-IN")}/cylinder, GST 18% exclusive). Effective: ${historyItem.effectiveFrom}`,
               ip: "127.0.0.1",
             },
             ...state.auditLogs,
@@ -1658,7 +1923,17 @@ export const useERPStore = create<ERPStore>()(
         const sapCode = rateData.sapCode || cust?.sap_code;
         const prod = get().products.find(p => p.id === rateData.productId || p.code === rateData.productId);
         const refWeight = prod?.referenceWeightKg || rateData.referenceWeightKg || 19;
-        const calculatedRatePerKg = Number((rateData.agreedRate / refWeight).toFixed(2));
+
+        let finalRatePerKg: number;
+        let finalAgreedRate: number;
+
+        if (rateData.ratePerKg !== undefined && rateData.ratePerKg > 0) {
+          finalRatePerKg = Number(rateData.ratePerKg.toFixed(2));
+          finalAgreedRate = Number((finalRatePerKg * refWeight).toFixed(2));
+        } else {
+          finalAgreedRate = Number(rateData.agreedRate.toFixed(2));
+          finalRatePerKg = Number((finalAgreedRate / refWeight).toFixed(2));
+        }
 
         const existingIdx = get().customerRates.findIndex(
           (r) =>
@@ -1670,6 +1945,7 @@ export const useERPStore = create<ERPStore>()(
           const oldRate = get().customerRates[existingIdx];
           const historyEntry = {
             rate: oldRate.agreedRate,
+            ratePerKg: oldRate.ratePerKg || (oldRate.referenceWeightKg ? oldRate.agreedRate / oldRate.referenceWeightKg : undefined),
             effectiveFrom: oldRate.effectiveFrom,
             approvedBy: oldRate.approvedBy,
             changedAt: getKolkataFormattedDate(),
@@ -1679,8 +1955,10 @@ export const useERPStore = create<ERPStore>()(
           updated[existingIdx] = {
             ...oldRate,
             ...rateData,
+            agreedRate: finalAgreedRate,
+            ratePerKg: finalRatePerKg,
             referenceWeightKg: refWeight,
-            calculatedRatePerKg,
+            calculatedRatePerKg: finalRatePerKg,
             gstRatePct: 18,
             sapCode,
             previousRate: oldRate.agreedRate,
@@ -1695,7 +1973,7 @@ export const useERPStore = create<ERPStore>()(
                 user: state.currentUserRole === "admin" ? "Bachan Admin" : "Staff User",
                 action: "rate_change",
                 resource: `Customer Rate for ${rateData.customerName}`,
-                details: `Updated basic rate for ${rateData.productName} from ₹${oldRate.agreedRate} to ₹${rateData.agreedRate.toLocaleString("en-IN")}/unit (₹${calculatedRatePerKg}/kg + 18% GST). Approved by: ${rateData.approvedBy}`,
+                details: `Updated basic rate for ${rateData.productName} to ₹${finalRatePerKg}/kg (₹${finalAgreedRate.toLocaleString("en-IN")}/unit + 18% GST). Approved by: ${rateData.approvedBy}`,
                 ip: "127.0.0.1",
               },
               ...state.auditLogs,
@@ -1704,15 +1982,18 @@ export const useERPStore = create<ERPStore>()(
         } else {
           const newRate: CustomerRate = {
             ...rateData,
+            agreedRate: finalAgreedRate,
+            ratePerKg: finalRatePerKg,
             referenceWeightKg: refWeight,
-            calculatedRatePerKg,
+            calculatedRatePerKg: finalRatePerKg,
             gstRatePct: 18,
             id: `rate-${Date.now()}`,
             sapCode,
             previousRate: undefined,
             rateHistory: [
               {
-                rate: rateData.agreedRate,
+                rate: finalAgreedRate,
+                ratePerKg: finalRatePerKg,
                 effectiveFrom: rateData.effectiveFrom,
                 approvedBy: rateData.approvedBy,
                 changedAt: getKolkataFormattedDate(),
@@ -1729,7 +2010,7 @@ export const useERPStore = create<ERPStore>()(
                 user: "Bachan Admin",
                 action: "rate_change",
                 resource: `Customer Rate for ${rateData.customerName}`,
-                details: `Set basic rate for ${rateData.productName} to ₹${rateData.agreedRate.toLocaleString("en-IN")}/unit (₹${calculatedRatePerKg}/kg + 18% GST)`,
+                details: `Set basic rate for ${rateData.productName} to ₹${finalRatePerKg}/kg (₹${finalAgreedRate.toLocaleString("en-IN")}/unit + 18% GST)`,
                 ip: "127.0.0.1",
               },
               ...state.auditLogs,
@@ -1739,24 +2020,234 @@ export const useERPStore = create<ERPStore>()(
       },
 
       getApplicableRate: (customerId, productId) => {
+        const prod = get().products.find((p) => p.id === productId);
+        const refWeight = prod?.referenceWeightKg || 19;
+
         const agreed = get().customerRates.find(
           (r) => (r.customerId === customerId || r.customerCode === customerId) && r.productId === productId
         );
         if (agreed && agreed.agreedRate > 0) {
-          return { rate: agreed.agreedRate, isConfigured: true, source: "customer" as const };
+          const ratePerKg = agreed.ratePerKg || (agreed.agreedRate / refWeight);
+          return {
+            rate: agreed.agreedRate,
+            ratePerKg: Number(ratePerKg.toFixed(2)),
+            referenceWeightKg: refWeight,
+            isConfigured: true,
+            source: "customer" as const,
+          };
         }
         const allowFallback = get().settings.allowStandardRateFallback !== false;
-        const prod = get().products.find((p) => p.id === productId);
         if (allowFallback && prod && prod.rate > 0) {
-          return { rate: prod.rate, isConfigured: true, source: "standard" as const };
+          const ratePerKg = prod.ratePerKg || (prod.rate / refWeight);
+          return {
+            rate: prod.rate,
+            ratePerKg: Number(ratePerKg.toFixed(2)),
+            referenceWeightKg: refWeight,
+            isConfigured: true,
+            source: "standard" as const,
+          };
         }
-        return { rate: 0, isConfigured: false, source: "none" as const };
+        return {
+          rate: 0,
+          ratePerKg: 0,
+          referenceWeightKg: refWeight,
+          isConfigured: false,
+          source: "none" as const,
+        };
       },
 
       isRateConfigured: (customerId, productId) => {
         return get().customerRates.some(
           (r) => (r.customerId === customerId || r.customerCode === customerId) && r.productId === productId
         );
+      },
+
+      // ── IN-TRANSIT INVENTORY ACTIONS ──
+      createInTransitShipment: (data) => {
+        const year = new Date().getFullYear();
+        const nextNum = get().inTransitShipments.length + 1;
+        const shipmentNum = `BGS-SHP-${year}-${String(nextNum).padStart(5, "0")}`;
+
+        const items: InTransitShipmentItem[] = data.items.map(item => {
+          const prod = get().products.find(p => p.id === item.productId || p.code === item.productId);
+          return {
+            productId: item.productId,
+            productName: prod?.name || item.productId,
+            productCode: prod?.code || item.productId,
+            referenceWeightKg: prod?.referenceWeightKg || 19.0,
+            qtyDispatched: item.qtyDispatched,
+            qtyReceived: 0,
+            qtyInTransit: item.qtyDispatched,
+          };
+        });
+
+        const totalDispatched = items.reduce((s, it) => s + it.qtyDispatched, 0);
+
+        const newShipment: InTransitShipment = {
+          id: `shp-${Date.now()}`,
+          shipmentNum,
+          supplierSource: data.supplierSource,
+          warehouseDestination: data.warehouseDestination || "Main Godown, Ludhiana",
+          items,
+          totalDispatched,
+          totalReceived: 0,
+          totalInTransit: totalDispatched,
+          dispatchDate: data.dispatchDate,
+          expectedArrivalDate: data.expectedArrivalDate,
+          transporter: data.transporter,
+          vehicleNumber: data.vehicleNumber,
+          challanNumber: data.challanNumber,
+          status: "in_transit",
+          recordedBy: data.recordedBy || (get().currentUserRole === "admin" ? "Bachan Admin" : "Staff User"),
+          remarks: data.remarks || "",
+          createdAt: getKolkataFormattedDate(),
+          receiptHistory: [],
+        };
+
+        set(state => ({
+          inTransitShipments: [newShipment, ...state.inTransitShipments],
+          auditLogs: [
+            {
+              id: `a-${Date.now()}`,
+              timestamp: getKolkataFormattedDate(),
+              user: data.recordedBy || "Bachan Admin",
+              action: "create",
+              resource: `In-Transit Shipment ${shipmentNum}`,
+              details: `Recorded dispatch of ${totalDispatched} cylinders from ${data.supplierSource} on vehicle ${data.vehicleNumber}. Challan: ${data.challanNumber}`,
+              ip: "127.0.0.1",
+            },
+            ...state.auditLogs,
+          ],
+        }));
+
+        return newShipment;
+      },
+
+      recordShipmentReceipt: (shipmentId, receiptData) => {
+        const shipment = get().inTransitShipments.find(s => s.id === shipmentId || s.shipmentNum === shipmentId);
+        if (!shipment) throw new Error("In-transit shipment not found.");
+
+        const totalNowReceived = receiptData.items.reduce((s, it) => s + it.qtyReceived, 0);
+        if (totalNowReceived <= 0) throw new Error("Received quantity must be greater than 0.");
+
+        const updatedItems = shipment.items.map(item => {
+          const recItem = receiptData.items.find(r => r.productId === item.productId);
+          if (!recItem) return item;
+          const newRec = item.qtyReceived + recItem.qtyReceived;
+          const newInTransit = Math.max(0, item.qtyDispatched - newRec);
+          return {
+            ...item,
+            qtyReceived: newRec,
+            qtyInTransit: newInTransit,
+          };
+        });
+
+        const newTotalReceived = updatedItems.reduce((s, it) => s + it.qtyReceived, 0);
+        const newTotalInTransit = Math.max(0, shipment.totalDispatched - newTotalReceived);
+        const newStatus = newTotalInTransit === 0 ? "fully_received" : "partially_received";
+
+        const receiptEntry: InTransitReceiptLog = {
+          id: `rcpt-${Date.now()}`,
+          receiptDate: receiptData.receiptDate || getKolkataDateString(),
+          items: receiptData.items.map(it => {
+            const prod = get().products.find(p => p.id === it.productId || p.code === it.productId);
+            return {
+              productId: it.productId,
+              productName: prod?.name || it.productId,
+              qtyReceived: it.qtyReceived,
+            };
+          }),
+          totalReceived: totalNowReceived,
+          condition: receiptData.condition || "Good",
+          receivedBy: receiptData.receivedBy || (get().currentUserRole === "admin" ? "Bachan Admin" : "Staff User"),
+          remarks: receiptData.remarks || "",
+        };
+
+        // Update warehouse stock & create stock movements for each received item
+        const updatedWarehouseStock = [...get().warehouseStock];
+        const newStockMovements: StockMovement[] = [];
+
+        receiptData.items.forEach(rec => {
+          const prod = get().products.find(p => p.id === rec.productId || p.code === rec.productId);
+          const stockIdx = updatedWarehouseStock.findIndex(ws => ws.productId === rec.productId);
+          if (stockIdx >= 0) {
+            const currentStock = updatedWarehouseStock[stockIdx];
+            updatedWarehouseStock[stockIdx] = {
+              ...currentStock,
+              filledStockReceived: (currentStock.filledStockReceived || 0) + rec.qtyReceived,
+              lastUpdated: getKolkataFormattedDate(),
+            };
+          }
+          newStockMovements.push({
+            id: `sm-rcpt-${Date.now()}-${rec.productId}`,
+            movementNum: `SM-${Date.now().toString().slice(-6)}`,
+            date: receiptData.receiptDate || getKolkataDateString(),
+            productId: rec.productId,
+            productName: prod?.name || rec.productId,
+            type: "receipt",
+            qty: rec.qtyReceived,
+            isEmpty: false,
+            refNum: shipment.shipmentNum,
+            supplierSource: shipment.supplierSource,
+            warehouseLocation: shipment.warehouseDestination,
+            recordedBy: receiptData.receivedBy || "Warehouse Staff",
+            status: "approved",
+            approvedBy: receiptData.receivedBy || "Warehouse Staff",
+            approvedAt: getKolkataFormattedDate(),
+            createdAt: getKolkataFormattedDate(),
+            remarks: `Physical receipt from shipment ${shipment.shipmentNum} (${shipment.vehicleNumber}). Condition: ${receiptData.condition || "Good"}`,
+          });
+        });
+
+        set(state => ({
+          inTransitShipments: state.inTransitShipments.map(s =>
+            s.id === shipment.id
+              ? {
+                  ...s,
+                  items: updatedItems,
+                  totalReceived: newTotalReceived,
+                  totalInTransit: newTotalInTransit,
+                  status: newStatus,
+                  receiptHistory: [receiptEntry, ...s.receiptHistory],
+                }
+              : s
+          ),
+          warehouseStock: updatedWarehouseStock,
+          stockMovements: [...newStockMovements, ...state.stockMovements],
+          auditLogs: [
+            {
+              id: `a-${Date.now()}`,
+              timestamp: getKolkataFormattedDate(),
+              user: receiptData.receivedBy || "Warehouse Staff",
+              action: "update",
+              resource: `Shipment ${shipment.shipmentNum}`,
+              details: `Physically received ${totalNowReceived} cylinders into godown from shipment ${shipment.shipmentNum}. Remaining in-transit: ${newTotalInTransit}. Status: ${newStatus}`,
+              ip: "127.0.0.1",
+            },
+            ...state.auditLogs,
+          ],
+        }));
+      },
+
+      getInTransitTotals: () => {
+        const shipments = get().inTransitShipments;
+        const todayStr = getKolkataDateString();
+        const activeShipments = shipments.filter(s => s.status !== "fully_received" && s.status !== "cancelled");
+
+        const totalInTransitQty = activeShipments.reduce((sum, s) => sum + s.totalInTransit, 0);
+        const expectedTodayQty = activeShipments
+          .filter(s => s.expectedArrivalDate === todayStr)
+          .reduce((sum, s) => sum + s.totalInTransit, 0);
+        const partiallyReceivedCount = activeShipments.filter(s => s.status === "partially_received").length;
+        const overdueCount = activeShipments.filter(s => s.expectedArrivalDate < todayStr).length;
+
+        return {
+          totalShipments: activeShipments.length,
+          totalInTransitQty,
+          expectedTodayQty,
+          partiallyReceivedCount,
+          overdueCount,
+        };
       },
 
       // ── STAFF RATE CHANGE REQUEST WORKFLOW ──

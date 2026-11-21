@@ -10,6 +10,25 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/cylinders",
+        destination: "/cylinder-returns",
+        permanent: false,
+      },
+      {
+        source: "/returns",
+        destination: "/cylinder-returns",
+        permanent: false,
+      },
+      {
+        source: "/godown/cylinders",
+        destination: "/cylinder-returns",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
