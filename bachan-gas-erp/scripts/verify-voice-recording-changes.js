@@ -94,9 +94,10 @@ assert(
 const newOrderCode = fs.readFileSync(newOrderPath, "utf8");
 
 assert(
-  newOrderCode.includes("readOnly={!isAdmin}") &&
+  newOrderCode.includes("Basic Rate (₹ / Unit) *") &&
+  newOrderCode.includes("Rate per KG (₹ / KG) *") &&
   newOrderCode.includes("getApplicableRate(customerId, prodId)"),
-  "Staff order entry strictly enforces auto-retrieved rates (read-only for staff)"
+  "Order entry auto-retrieves rates with full bidirectional editing for Rate per Unit and Rate per KG"
 );
 
 // 5. Inspect Inventory Page for In-Transit Tracking

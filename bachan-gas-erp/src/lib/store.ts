@@ -4381,8 +4381,25 @@ export const useERPStore = create<ERPStore>()(
       },
     }),
     {
-      name: "bachan_erp_v4_business_workflow",
+      name: "bachan_erp_v5_operations_master",
       storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        // Self-heal products if rates are 0
+        state.products = state.products.map(p => {
+          const master = EXACT_SIX_ACTIVE_PRODUCTS.find(m => m.id === p.id || m.code === p.code);
+          if (master && (p.rate <= 0 || !p.ratePerKg)) {
+            return { ...p, rate: master.rate, ratePerKg: master.ratePerKg, referenceWeightKg: master.referenceWeightKg };
+          }
+          return p;
+        });
+        if (!state.customerRates || state.customerRates.length === 0) {
+          state.customerRates = INITIAL_CUSTOMER_RATES;
+        }
+        if (!state.inTransitShipments || state.inTransitShipments.length === 0) {
+          state.inTransitShipments = INITIAL_IN_TRANSIT_SHIPMENTS;
+        }
+      },
     }
   )
 );
