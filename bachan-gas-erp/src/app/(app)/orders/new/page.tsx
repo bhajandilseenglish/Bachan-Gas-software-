@@ -15,7 +15,7 @@ function NewOrderForm() {
   const searchParams = useSearchParams();
   const preSelectedCustomerId = searchParams.get("customer") || searchParams.get("customer_id") || searchParams.get("customerId") || "";
 
-  const { customers, products, customerRates, currentUserRole, setCustomerRate, getApplicableRate, createOrder, orders } = useERPStore();
+  const { customers, products, customerRates, currentUserRole, setCustomerRate, getApplicableRate, createOrder, orders, updateBasicRate, settings } = useERPStore();
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ type: "error" | "success"; text: string } | null>(null);
 
@@ -29,12 +29,54 @@ function NewOrderForm() {
   // Order Line States
   const [prodId, setProdId] = useState(activeProducts[0]?.id || "");
   const [qty, setQty] = useState(1);
-  const [rate, setRate] = useState<number>(4750);
-  const [ratePerKg, setRatePerKg] = useState<number>(100);
+
+  // Initialize rate from product master (not hardcoded 4750)
+  const getDefaultRate = (p: typeof activeProducts[0] | undefined): number => {
+    if (!p) return 4750;
+    if (p.rate > 0) return p.rate;
+    if ((p.ratePerKg ?? 0) > 0 && p.referenceWeightKg) return Math.round((p.ratePerKg ?? 100) * p.referenceWeightKg);
+    return 4750;
+  };
+  const getDefaultRatePerKg = (p: typeof activeProducts[0] | undefined): number => {
+    if (!p) return 100;
+    if ((p.ratePerKg ?? 0) > 0) return p.ratePerKg ?? 100;
+    if (p.rate > 0 && p.referenceWeightKg) return Number((p.rate / p.referenceWeightKg).toFixed(2));
+    return 100;
+  };
+
+  const [rate, setRate] = useState<number>(getDefaultRate(activeProducts[0]));
+  const [ratePerKg, setRatePerKg] = useState<number>(getDefaultRatePerKg(activeProducts[0]));
   const [rateSource, setRateSource] = useState<"customer" | "standard" | "custom" | "none">("standard");
   const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split("T")[0]);
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
   const [remarks, setRemarks] = useState("");
+
+  // Self-heal: If any product has rate = 0, restore from master defaults
+  useEffect(() => {
+    const MASTER_RATES: Record<string, { rate: number; ratePerKg: number; referenceWeightKg: number }> = {
+      "p-lot-475": { rate: 4750, ratePerKg: 100, referenceWeightKg: 47.5 },
+      "p-vot-475": { rate: 4750, ratePerKg: 100, referenceWeightKg: 47.5 },
+      "p-jmb-425": { rate: 42500, ratePerKg: 100, referenceWeightKg: 425.0 },
+      "p-nno-190": { rate: 1900, ratePerKg: 100, referenceWeightKg: 19.0 },
+      "p-xtj-190": { rate: 1900, ratePerKg: 100, referenceWeightKg: 19.0 },
+      "p-nrm-190": { rate: 1900, ratePerKg: 100, referenceWeightKg: 19.0 },
+    };
+    products.forEach(p => {
+      if (p.active && (p.rate <= 0 || !p.ratePerKg)) {
+        const master = MASTER_RATES[p.id];
+        if (master) {
+          updateBasicRate({
+            productId: p.id,
+            basicRatePerKg: master.ratePerKg,
+            basicRate: master.rate,
+            effectiveFrom: new Date().toISOString().split("T")[0],
+            notes: "Auto-restored master rate — zero rate detected on order form load",
+          });
+        }
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Quick Rate Modal
   const [showRateModal, setShowRateModal] = useState(false);
@@ -62,6 +104,16 @@ function NewOrderForm() {
 
   // Update rate whenever customer or product changes
   useEffect(() => {
+    const MASTER_RATES: Record<string, { rate: number; ratePerKg: number }> = {
+      "p-lot-475": { rate: 4750, ratePerKg: 100 },
+      "p-vot-475": { rate: 4750, ratePerKg: 100 },
+      "p-jmb-425": { rate: 42500, ratePerKg: 100 },
+      "p-nno-190": { rate: 1900, ratePerKg: 100 },
+      "p-xtj-190": { rate: 1900, ratePerKg: 100 },
+      "p-nrm-190": { rate: 1900, ratePerKg: 100 },
+    };
+    const masterFallback = prod ? (MASTER_RATES[prod.id] || { rate: 4750, ratePerKg: 100 }) : { rate: 4750, ratePerKg: 100 };
+
     if (customerId && prodId) {
       const rateObj = getApplicableRate(customerId, prodId);
       if (rateObj.isConfigured && rateObj.rate > 0) {
@@ -69,15 +121,16 @@ function NewOrderForm() {
         setRatePerKg(rateObj.ratePerKg || Number((rateObj.rate / refWeight).toFixed(2)));
         setRateSource(rateObj.source);
       } else {
-        const prodRate = prod && prod.rate > 0 ? prod.rate : 100 * refWeight;
-        const prodKg = prod && prod.ratePerKg ? prod.ratePerKg : 100;
+        // Fallback: product rate → master rate → default
+        const prodRate = prod && prod.rate > 0 ? prod.rate : masterFallback.rate;
+        const prodKg = prod && (prod.ratePerKg ?? 0) > 0 ? (prod.ratePerKg ?? masterFallback.ratePerKg) : masterFallback.ratePerKg;
         setRate(prodRate);
         setRatePerKg(prodKg);
         setRateSource(prod && prod.rate > 0 ? "standard" : "custom");
       }
     } else if (prod) {
-      const prodRate = prod.rate > 0 ? prod.rate : 100 * refWeight;
-      const prodKg = prod.ratePerKg ? prod.ratePerKg : 100;
+      const prodRate = prod.rate > 0 ? prod.rate : masterFallback.rate;
+      const prodKg = (prod.ratePerKg ?? 0) > 0 ? (prod.ratePerKg ?? masterFallback.ratePerKg) : masterFallback.ratePerKg;
       setRate(prodRate);
       setRatePerKg(prodKg);
       setRateSource("standard");
@@ -656,13 +709,13 @@ function NewOrderForm() {
           </button>
           <button
             type="submit"
-            disabled={pending || currentRate <= 0}
+            disabled={pending || !selectedCustomer}
             style={{
               padding: "10px 24px", borderRadius: 8, border: "none",
-              background: currentRate <= 0 ? "#94a3b8" : "#2563eb",
+              background: !selectedCustomer ? "#94a3b8" : "#2563eb",
               color: "#fff", fontWeight: 800, fontSize: 13.5,
-              cursor: currentRate <= 0 ? "not-allowed" : "pointer",
-              boxShadow: currentRate <= 0 ? "none" : "0 2px 6px rgba(37,99,235,0.3)"
+              cursor: !selectedCustomer ? "not-allowed" : "pointer",
+              boxShadow: !selectedCustomer ? "none" : "0 2px 6px rgba(37,99,235,0.3)"
             }}
           >
             {pending ? "Saving Order..." : "Confirm & Save Order"}
