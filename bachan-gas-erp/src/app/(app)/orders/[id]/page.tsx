@@ -52,6 +52,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     confirmDelivery,
     postInvoice,
     allocateAdvanceToInvoice,
+    recordPayment,
   } = useERPStore();
 
   const o = orders.find(ord => ord.id === id || ord.num === id) || orders[0];
@@ -80,6 +81,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [advanceAmount, setAdvanceAmount] = useState<number>(0);
   const [actionSuccess, setActionSuccess] = useState("");
 
+  // Payment modal
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [payAmount, setPayAmount] = useState<number>(0);
+  const [payMethod, setPayMethod] = useState("Bank Transfer");
+  const [payRef, setPayRef] = useState("");
+  const [payRemarks, setPayRemarks] = useState("");
+
   if (!o) {
     return (
       <div style={{ padding: 40, textAlign: "center" }}>
@@ -107,7 +115,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   const steps = [
     { key: "created", label: "Order Created", sub: o.date, done: true },
-    { key: "approved", label: "Admin Approved", sub: isApproved ? "Approved" : "Pending", done: isApproved },
+    { key: "confirmed", label: "Order Confirmed", sub: o.status !== "draft" ? "Confirmed" : "Pending", done: o.status !== "draft" },
     { key: "dispatched", label: "Dispatched", sub: linkedDelivery ? linkedDelivery.num : (isDispatched ? "In Transit" : "Pending"), done: isDispatched },
     { key: "delivered", label: "Delivered", sub: isDelivered ? `${o.qtyIssued || o.totalQty} Delivered` : "Pending", done: isDelivered },
     { key: "invoiced", label: "Invoiced", sub: linkedInvoice ? linkedInvoice.num : "Not Invoiced", done: isInvoiced },
@@ -176,6 +184,24 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     } else {
       alert(res.message);
     }
+  };
+
+  const handleRecordPayment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customer || payAmount <= 0) return;
+    recordPayment({
+      customerId: customer.id,
+      amount: payAmount,
+      date: new Date().toISOString().split("T")[0],
+      method: payMethod as any,
+      ref: payRef || undefined,
+      remarks: payRemarks || `Payment for Order ${o.num}`,
+    });
+    setShowPaymentModal(false);
+    setPayAmount(0);
+    setPayRef("");
+    setPayRemarks("");
+    setActionSuccess(`Payment of ₹${payAmount.toLocaleString("en-IN")} recorded successfully for ${o.customerName}.`);
   };
 
   const sMeta = STATUS_BADGE[o.status] || STATUS_BADGE.confirmed;
@@ -269,6 +295,19 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             }}
               style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, fontSize: 12.5, fontWeight: 700, background: "#7c3aed", color: "#fff", border: "none", cursor: "pointer" }}>
               <CreditCard size={14} /> Apply Customer Advance
+            </button>
+          )}
+
+          {/* Record Payment */}
+          {linkedInvoice && linkedInvoice.status !== "paid" && (
+            <button
+              onClick={() => {
+                setPayAmount(Math.max(0, o.total - (o.paidAmount || linkedInvoice?.paid || 0)));
+                setShowPaymentModal(true);
+              }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, fontSize: 12.5, fontWeight: 700, background: "#059669", color: "#fff", border: "none", cursor: "pointer" }}
+            >
+              <DollarSign size={14} /> Record Payment
             </button>
           )}
         </div>
@@ -705,6 +744,60 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
                 <button type="button" onClick={() => setShowAdvanceModal(false)} style={{ padding: "8px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: 12.5 }}>Cancel</button>
                 <button type="submit" style={{ padding: "8px 18px", borderRadius: 8, background: "#7c3aed", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12.5 }}>✓ Allocate Advance</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Record Payment Modal */}
+      {showPaymentModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: 480, padding: 24, boxShadow: "0 20px 25px -5px rgba(0,0,0,.1)" }}>
+            <h3 style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 800, color: "#1e293b" }}>Record Payment</h3>
+            <p style={{ fontSize: 12.5, color: "#64748b", margin: "0 0 16px" }}>
+              Customer: <strong>{o.customerName}</strong> · Order: <strong>{o.num}</strong>
+              {linkedInvoice && <> · Invoice: <strong>{linkedInvoice.num}</strong></>}
+            </p>
+            <form onSubmit={handleRecordPayment} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 4 }}>Amount Received (₹) *</label>
+                <input
+                  type="number" required min="1" value={payAmount || ""}
+                  onChange={e => setPayAmount(Number(e.target.value) || 0)}
+                  style={{ width: "100%", border: "2px solid #059669", borderRadius: 8, padding: "9px 12px", fontSize: 15, fontWeight: 800, outline: "none", boxSizing: "border-box" }}
+                />
+                <span style={{ fontSize: 11, color: "#64748b", marginTop: 3, display: "block" }}>
+                  Balance due: ₹{Math.max(0, o.total - (o.paidAmount || linkedInvoice?.paid || 0)).toLocaleString("en-IN")}
+                </span>
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 4 }}>Payment Method *</label>
+                <select value={payMethod} onChange={e => setPayMethod(e.target.value)}
+                  style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13 }}>
+                  <option>Cash</option>
+                  <option>Bank Transfer</option>
+                  <option>UPI</option>
+                  <option>Cheque</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 4 }}>
+                  {payMethod === "Cash" ? "Received By" : payMethod === "Cheque" ? "Cheque / DD Number" : "UTR / Reference Number"}
+                </label>
+                <input type="text" value={payRef} onChange={e => setPayRef(e.target.value)}
+                  placeholder={payMethod === "Cash" ? "Staff member name" : "Transaction reference number"}
+                  style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 4 }}>Remarks (Optional)</label>
+                <input type="text" value={payRemarks} onChange={e => setPayRemarks(e.target.value)}
+                  placeholder={`Payment for Order ${o.num}`}
+                  style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13, boxSizing: "border-box" }} />
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
+                <button type="button" onClick={() => setShowPaymentModal(false)} style={{ padding: "8px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: 12.5 }}>Cancel</button>
+                <button type="submit" style={{ padding: "8px 20px", borderRadius: 8, background: "#059669", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12.5 }}>✓ Record Payment</button>
               </div>
             </form>
           </div>

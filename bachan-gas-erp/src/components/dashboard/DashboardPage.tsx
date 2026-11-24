@@ -117,6 +117,7 @@ export default function DashboardPage() {
     followUpLogs,
     evaluateInactivityAlerts,
     inTransitShipments,
+    customerApprovals,
   } = useERPStore();
 
   useEffect(() => {
@@ -175,25 +176,27 @@ export default function DashboardPage() {
 
   // ── 4 Dedicated Operational Sections KPIs (Handwritten Requirements) ──
   // Section 1: Orders & In-Transit Supply
-  const todaysOrdersCount = orders.length;
   const pendingOrdersCount = orders.filter(o => o.status !== "delivered" && o.status !== "cancelled").length;
   const todaysIssuedCylinders = orders.filter(o => o.status !== "cancelled").reduce((s, o) => s + (o.qtyIssued || o.totalQty), 0);
   const inTransitCylindersTotal = (inTransitShipments || []).reduce((sum, s) => sum + (s.totalInTransit || 0), 0);
   const activeShipmentsCount = (inTransitShipments || []).filter(s => s.status !== "fully_received").length;
 
   // Section 2: Cylinder Exchange
-  const emptyReceivedToday = cylinderExchangeLedger.reduce((s, e) => s + e.emptyReceived, 0);
   const emptyPendingTotal = customers.reduce((s, c) => s + (c.empty_cylinders_pending || 0), 0);
 
   // Section 3: Finance
-  const paymentsToday = payments.reduce((s, p) => s + p.amount, 0);
   const totalOutstanding = customers.reduce((s, c) => s + (c.outstanding || 0), 0);
   const overduePaymentsTotal = customers.reduce((s, c) => s + (c.overdue || 0), 0);
   const customersOverCreditCount = customers.filter(c => c.credit_limit !== null && c.credit_limit > 0 && (c.outstanding || 0) > c.credit_limit).length;
+  const pendingCustomerApprovals = (customerApprovals || []).filter(a => a.status === "pending_approval").length;
 
   // Section 4: Customer Monitoring ("Commercial Customers — Order Alerts")
-  const todayKolkataDate = new Date().toISOString().split("T")[0];
-  const expectedOrdersToday = customers.filter(c => c.expected_next_order_date === todayKolkataDate).length;
+  const kolkataToday = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); // YYYY-MM-DD in Kolkata
+  const todaysOrdersCount = orders.filter(o => o.date && (o.date === kolkataToday || o.date.startsWith(kolkataToday))).length;
+  const todaysOrdersValue = orders.filter(o => o.date && (o.date === kolkataToday || o.date.startsWith(kolkataToday))).reduce((s, o) => s + o.total, 0);
+  const expectedOrdersToday = customers.filter(c => c.expected_next_order_date === kolkataToday).length;
+  const paymentsToday = payments.filter(p => p.date && (p.date === kolkataToday || p.date.startsWith(kolkataToday))).reduce((s, p) => s + p.amount, 0);
+  const emptyReceivedToday = cylinderExchangeLedger.filter(e => e.date && (e.date === kolkataToday || e.date.startsWith(kolkataToday))).reduce((s, e) => s + e.emptyReceived, 0);
   const missedOrdersCount = missedOrderAlerts.filter(a => a.status === "active").length;
   const followUpRequiredCount = missedOrderAlerts.filter(a => a.status === "active").length;
   const contactedCount = missedOrderAlerts.filter(a => a.status === "contacted").length;
@@ -510,7 +513,7 @@ export default function DashboardPage() {
           <MetCard
             title="Collections Today"
             value={INR(paymentsToday)}
-            sub={`${payments.length} receipts entered`}
+            sub={`${payments.filter(p => p.date && (p.date === kolkataToday || p.date.startsWith(kolkataToday))).length} receipts today`}
             Icon={CreditCard}
             color="#16a34a"
             href="/finance/payments"
@@ -560,6 +563,16 @@ export default function DashboardPage() {
           <MiniCard val={contactedCount} label="Called Staff" Icon={CheckCircle2} color="#0891b2" href="/customers/alerts" />
           <MiniCard val={resumedOrderingCount} label="Order Placed" Icon={TrendingUp} color="#16a34a" href="/customers/alerts" />
         </div>
+        {pendingCustomerApprovals > 0 && (
+          <div style={{ marginTop: 10, padding: "10px 16px", background: "#fef3c7", border: "1.5px solid #fde68a", borderRadius: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#92400e" }}>
+              ⏳ {pendingCustomerApprovals} customer registration{pendingCustomerApprovals > 1 ? "s" : ""} pending Admin approval
+            </div>
+            <Link href="/admin/customer-approvals" style={{ fontSize: 12, fontWeight: 700, color: "#92400e", textDecoration: "none", background: "#fde68a", padding: "4px 12px", borderRadius: 6 }}>
+              Review Now →
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* ── Charts ── */}

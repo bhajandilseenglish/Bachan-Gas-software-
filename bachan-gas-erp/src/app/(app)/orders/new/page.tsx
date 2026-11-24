@@ -44,8 +44,33 @@ function NewOrderForm() {
     return 100;
   };
 
-  const [rate, setRate] = useState<number>(getDefaultRate(activeProducts[0]));
-  const [ratePerKg, setRatePerKg] = useState<number>(getDefaultRatePerKg(activeProducts[0]));
+  // Inline MASTER_RATES for initial rate seeding (before store rehydration completes)
+  const MASTER_RATES_INIT: Record<string, { rate: number; ratePerKg: number; referenceWeightKg: number }> = {
+    "p-lot-475": { rate: 4750, ratePerKg: 100, referenceWeightKg: 47.5 },
+    "p-vot-475": { rate: 4750, ratePerKg: 100, referenceWeightKg: 47.5 },
+    "p-jmb-425": { rate: 42500, ratePerKg: 100, referenceWeightKg: 425.0 },
+    "p-nno-190": { rate: 1900, ratePerKg: 100, referenceWeightKg: 19.0 },
+    "p-xtj-190": { rate: 1900, ratePerKg: 100, referenceWeightKg: 19.0 },
+    "p-nrm-190": { rate: 1900, ratePerKg: 100, referenceWeightKg: 19.0 },
+  };
+
+  const getSeedRate = (p: typeof activeProducts[0] | undefined): number => {
+    if (!p) return 4750;
+    if (p.rate > 0) return p.rate;
+    if ((p.ratePerKg ?? 0) > 0 && p.referenceWeightKg) return Math.round((p.ratePerKg ?? 100) * p.referenceWeightKg);
+    const master = MASTER_RATES_INIT[p.id];
+    return master ? master.rate : 4750;
+  };
+  const getSeedRatePerKg = (p: typeof activeProducts[0] | undefined): number => {
+    if (!p) return 100;
+    if ((p.ratePerKg ?? 0) > 0) return p.ratePerKg ?? 100;
+    if (p.rate > 0 && p.referenceWeightKg) return Number((p.rate / p.referenceWeightKg).toFixed(2));
+    const master = MASTER_RATES_INIT[p.id];
+    return master ? master.ratePerKg : 100;
+  };
+
+  const [rate, setRate] = useState<number>(getSeedRate(activeProducts[0]));
+  const [ratePerKg, setRatePerKg] = useState<number>(getSeedRatePerKg(activeProducts[0]));
   const [rateSource, setRateSource] = useState<"customer" | "standard" | "custom" | "none">("standard");
   const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split("T")[0]);
   const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
@@ -75,8 +100,18 @@ function NewOrderForm() {
         }
       }
     });
+
+    // Also re-seed form rate state if currently 0 (store just rehydrated after mount)
+    if (rate <= 0 && prod) {
+      const master = MASTER_RATES[prod.id];
+      const healedRate = prod.rate > 0 ? prod.rate : (master ? master.rate : 4750);
+      const healedKg = (prod.ratePerKg ?? 0) > 0 ? (prod.ratePerKg ?? 100) : (master ? master.ratePerKg : 100);
+      setRate(healedRate);
+      setRatePerKg(healedKg);
+      setRateSource("standard");
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [products]);
 
   // Quick Rate Modal
   const [showRateModal, setShowRateModal] = useState(false);
@@ -121,12 +156,13 @@ function NewOrderForm() {
         setRatePerKg(rateObj.ratePerKg || Number((rateObj.rate / refWeight).toFixed(2)));
         setRateSource(rateObj.source);
       } else {
-        // Fallback: product rate → master rate → default
+        // Fallback: product rate → master rate → default (always resolve a valid rate)
         const prodRate = prod && prod.rate > 0 ? prod.rate : masterFallback.rate;
         const prodKg = prod && (prod.ratePerKg ?? 0) > 0 ? (prod.ratePerKg ?? masterFallback.ratePerKg) : masterFallback.ratePerKg;
         setRate(prodRate);
         setRatePerKg(prodKg);
-        setRateSource(prod && prod.rate > 0 ? "standard" : "custom");
+        // Always "standard" here — we always resolve a master rate; never show "none"
+        setRateSource("standard");
       }
     } else if (prod) {
       const prodRate = prod.rate > 0 ? prod.rate : masterFallback.rate;
