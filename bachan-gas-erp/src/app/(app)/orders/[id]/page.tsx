@@ -43,6 +43,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     customers,
     deliveries,
     invoices,
+    payments,
     customerAdvances,
     advanceAllocations,
     cylinderExchangeLedger,
@@ -87,6 +88,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [payMethod, setPayMethod] = useState("Bank Transfer");
   const [payRef, setPayRef] = useState("");
   const [payRemarks, setPayRemarks] = useState("");
+  const [payDate, setPayDate] = useState(new Date().toISOString().split("T")[0]);
 
   if (!o) {
     return (
@@ -105,6 +107,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const availableAdvances = customerAdvances.filter(
     a => a.customerId === customer?.id && a.remainingAdvance > 0 && a.status !== "fully_applied"
   );
+
+  // Payments linked to this customer (shown in payment history on this order)
+  const customerPayments = payments
+    .filter(p => p.customerId === customer?.id || p.customerId === o.customerId)
+    .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
+  const balanceDue = Math.max(0, o.total - (o.paidAmount || linkedInvoice?.paid || 0));
 
   // Stepper calculations
   const isApproved = o.status !== "draft" && o.status !== "confirmed";
@@ -189,18 +198,21 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const handleRecordPayment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!customer || payAmount <= 0) return;
+    const balanceDue = Math.max(0, o.total - (o.paidAmount || linkedInvoice?.paid || 0));
     recordPayment({
       customerId: customer.id,
       amount: payAmount,
-      date: new Date().toISOString().split("T")[0],
+      date: payDate,
       method: payMethod as any,
       ref: payRef || undefined,
       remarks: payRemarks || `Payment for Order ${o.num}`,
+      isAdvance: payAmount > balanceDue && balanceDue === 0,
     });
     setShowPaymentModal(false);
     setPayAmount(0);
     setPayRef("");
     setPayRemarks("");
+    setPayDate(new Date().toISOString().split("T")[0]);
     setActionSuccess(`Payment of ₹${payAmount.toLocaleString("en-IN")} recorded successfully for ${o.customerName}.`);
   };
 
@@ -298,18 +310,17 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             </button>
           )}
 
-          {/* Record Payment */}
-          {linkedInvoice && linkedInvoice.status !== "paid" && (
-            <button
-              onClick={() => {
-                setPayAmount(Math.max(0, o.total - (o.paidAmount || linkedInvoice?.paid || 0)));
-                setShowPaymentModal(true);
-              }}
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, fontSize: 12.5, fontWeight: 700, background: "#059669", color: "#fff", border: "none", cursor: "pointer" }}
-            >
-              <DollarSign size={14} /> Record Payment
-            </button>
-          )}
+          {/* Record Payment — always visible */}
+          <button
+            onClick={() => {
+              setPayAmount(balanceDue > 0 ? balanceDue : 0);
+              setPayDate(new Date().toISOString().split("T")[0]);
+              setShowPaymentModal(true);
+            }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, fontSize: 12.5, fontWeight: 700, background: "#059669", color: "#fff", border: "none", cursor: "pointer" }}
+          >
+            <DollarSign size={14} /> Record Payment
+          </button>
         </div>
       </div>
 
@@ -619,6 +630,86 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 ))}
               </div>
             )}
+
+            {/* Record Payment CTA inline */}
+            <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1.5px solid #e2e8f0" }}>
+              <button
+                onClick={() => {
+                  setPayAmount(balanceDue > 0 ? balanceDue : 0);
+                  setPayDate(new Date().toISOString().split("T")[0]);
+                  setShowPaymentModal(true);
+                }}
+                style={{
+                  width: "100%", padding: "10px 0", borderRadius: 8, border: "none",
+                  background: balanceDue > 0 ? "#059669" : "#0284c7",
+                  color: "#fff", fontWeight: 800, fontSize: 13, cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8
+                }}
+              >
+                <DollarSign size={15} />
+                {balanceDue > 0 ? `Record Payment (₹${balanceDue.toLocaleString("en-IN")} Due)` : "Record Advance / Additional Payment"}
+              </button>
+            </div>
+          </div>
+
+          {/* Payment History Card */}
+          <div style={{ ...card(), padding: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".06em", color: "#64748b" }}>
+                Payment History
+              </div>
+              <span style={{
+                fontSize: 10.5, fontWeight: 700, padding: "2px 8px", borderRadius: 100,
+                background: isPaid ? "#dcfce7" : (o.paymentStatus === "partially_paid" ? "#fef3c7" : "#fee2e2"),
+                color: isPaid ? "#15803d" : (o.paymentStatus === "partially_paid" ? "#92400e" : "#991b1b")
+              }}>
+                {isPaid ? "Fully Settled" : o.paymentStatus === "partially_paid" ? "Partially Paid" : "Pending"}
+              </span>
+            </div>
+
+            {customerPayments.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "20px 0", color: "#94a3b8", fontSize: 13 }}>
+                <DollarSign size={28} color="#cbd5e1" style={{ marginBottom: 8, display: "block", margin: "0 auto 8px" }} />
+                No payments recorded yet for this customer.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {customerPayments.slice(0, 6).map(pay => (
+                  <div key={pay.id} style={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    padding: "10px 12px", borderRadius: 8, background: "#f8fafc", border: "1px solid #e2e8f0"
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: "#1e293b", fontFamily: "monospace" }}>
+                        {pay.num || pay.receiptNum}
+                      </div>
+                      <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                        {pay.date} · {pay.method}
+                        {pay.ref && <span style={{ marginLeft: 4, color: "#94a3b8" }}>· {pay.ref}</span>}
+                      </div>
+                      {pay.remarks && (
+                        <div style={{ fontSize: 10.5, color: "#94a3b8", marginTop: 1 }}>{pay.remarks}</div>
+                      )}
+                    </div>
+                    <strong style={{ fontSize: 14, color: "#059669", fontWeight: 800 }}>
+                      ₹{pay.amount.toLocaleString("en-IN")}
+                    </strong>
+                  </div>
+                ))}
+                {customerPayments.length > 6 && (
+                  <div style={{ textAlign: "center", fontSize: 12, color: "#64748b", paddingTop: 4 }}>
+                    +{customerPayments.length - 6} more payments — view in Finance module
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px dashed #e2e8f0", display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+              <span style={{ color: "#64748b" }}>Total Received (all payments):</span>
+              <strong style={{ color: "#059669" }}>
+                ₹{customerPayments.reduce((s, p) => s + (p.amount || 0), 0).toLocaleString("en-IN")}
+              </strong>
+            </div>
           </div>
         </div>
       </div>
@@ -752,52 +843,153 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
       {/* Record Payment Modal */}
       {showPaymentModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: 480, padding: 24, boxShadow: "0 20px 25px -5px rgba(0,0,0,.1)" }}>
-            <h3 style={{ margin: "0 0 6px", fontSize: 17, fontWeight: 800, color: "#1e293b" }}>Record Payment</h3>
-            <p style={{ fontSize: 12.5, color: "#64748b", margin: "0 0 16px" }}>
-              Customer: <strong>{o.customerName}</strong> · Order: <strong>{o.num}</strong>
-              {linkedInvoice && <> · Invoice: <strong>{linkedInvoice.num}</strong></>}
-            </p>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.65)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 520, padding: 28, boxShadow: "0 24px 48px rgba(0,0,0,.18)" }}>
+
+            {/* Modal Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid #e2e8f0", paddingBottom: 14, marginBottom: 18 }}>
+              <div>
+                <h3 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 800, color: "#1e293b", display: "flex", alignItems: "center", gap: 8 }}>
+                  <DollarSign size={18} color="#059669" /> Record Payment
+                </h3>
+                <p style={{ fontSize: 12, color: "#64748b", margin: 0 }}>
+                  Customer: <strong style={{ color: "#1e293b" }}>{o.customerName}</strong>
+                  {customer?.code && <> · Code: <span style={{ fontFamily: "monospace", color: "#1e3a8a" }}>{customer.code}</span></>}
+                </p>
+              </div>
+              <button onClick={() => setShowPaymentModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 20 }}>✕</button>
+            </div>
+
+            {/* Financial Context Banner */}
+            <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "10px 14px", marginBottom: 18, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Order Total</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#1e3a8a" }}>₹{o.total.toLocaleString("en-IN")}</div>
+              </div>
+              <div style={{ textAlign: "center", borderLeft: "1px solid #d1fae5", borderRight: "1px solid #d1fae5" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Paid So Far</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#059669" }}>₹{(o.paidAmount || linkedInvoice?.paid || 0).toLocaleString("en-IN")}</div>
+              </div>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>Balance Due</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: balanceDue > 0 ? "#dc2626" : "#059669" }}>₹{balanceDue.toLocaleString("en-IN")}</div>
+              </div>
+            </div>
+
+            {linkedInvoice && (
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14, fontSize: 12, color: "#0369a1", background: "#f0f9ff", border: "1px solid #bae6fd", padding: "7px 12px", borderRadius: 8 }}>
+                <FileText size={13} />
+                Invoice: <strong>{linkedInvoice.num}</strong> · Amount: <strong>₹{linkedInvoice.total.toLocaleString("en-IN")}</strong>
+                · Status: <strong style={{ color: linkedInvoice.status === "paid" ? "#059669" : "#d97706" }}>{linkedInvoice.status?.replace("_", " ").toUpperCase()}</strong>
+              </div>
+            )}
+
             <form onSubmit={handleRecordPayment} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 4 }}>Amount Received (₹) *</label>
-                <input
-                  type="number" required min="1" value={payAmount || ""}
-                  onChange={e => setPayAmount(Number(e.target.value) || 0)}
-                  style={{ width: "100%", border: "2px solid #059669", borderRadius: 8, padding: "9px 12px", fontSize: 15, fontWeight: 800, outline: "none", boxSizing: "border-box" }}
-                />
-                <span style={{ fontSize: 11, color: "#64748b", marginTop: 3, display: "block" }}>
-                  Balance due: ₹{Math.max(0, o.total - (o.paidAmount || linkedInvoice?.paid || 0)).toLocaleString("en-IN")}
-                </span>
+
+              {/* Amount + Date row */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#0f172a", marginBottom: 5 }}>Amount Received (₹) *</label>
+                  <input
+                    type="number" required min="1"
+                    value={payAmount || ""}
+                    onChange={e => setPayAmount(Number(e.target.value) || 0)}
+                    placeholder={balanceDue > 0 ? String(balanceDue) : "0"}
+                    style={{ width: "100%", border: "2px solid #059669", borderRadius: 8, padding: "9px 12px", fontSize: 15, fontWeight: 800, outline: "none", boxSizing: "border-box", color: "#1e293b" }}
+                  />
+                  {balanceDue > 0 && (
+                    <button type="button" onClick={() => setPayAmount(balanceDue)}
+                      style={{ marginTop: 4, fontSize: 11, color: "#059669", fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                      ↑ Fill balance due ₹{balanceDue.toLocaleString("en-IN")}
+                    </button>
+                  )}
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#0f172a", marginBottom: 5 }}>Payment Date *</label>
+                  <input
+                    type="date" required
+                    value={payDate}
+                    onChange={e => setPayDate(e.target.value)}
+                    style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "9px 12px", fontSize: 13, boxSizing: "border-box" }}
+                  />
+                </div>
               </div>
+
+              {/* Method */}
               <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 4 }}>Payment Method *</label>
-                <select value={payMethod} onChange={e => setPayMethod(e.target.value)}
-                  style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13 }}>
-                  <option>Cash</option>
-                  <option>Bank Transfer</option>
-                  <option>UPI</option>
-                  <option>Cheque</option>
-                </select>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#0f172a", marginBottom: 5 }}>Payment Method *</label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+                  {["Cash", "Bank Transfer", "UPI", "Cheque"].map(m => (
+                    <button key={m} type="button" onClick={() => setPayMethod(m)}
+                      style={{
+                        padding: "8px 4px", borderRadius: 8, border: `2px solid ${payMethod === m ? "#059669" : "#e2e8f0"}`,
+                        background: payMethod === m ? "#ecfdf5" : "#f8fafc", color: payMethod === m ? "#059669" : "#64748b",
+                        fontWeight: 700, fontSize: 11.5, cursor: "pointer"
+                      }}>
+                      {m === "Bank Transfer" ? "Bank" : m}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {/* Conditional reference field */}
               <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 4 }}>
-                  {payMethod === "Cash" ? "Received By" : payMethod === "Cheque" ? "Cheque / DD Number" : "UTR / Reference Number"}
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#0f172a", marginBottom: 5 }}>
+                  {payMethod === "Cash" ? "Received By (Staff Name)" :
+                   payMethod === "Cheque" ? "Cheque / DD Number" :
+                   payMethod === "UPI" ? "UPI Transaction ID / UTR" : "Bank UTR / Reference Number"}
                 </label>
-                <input type="text" value={payRef} onChange={e => setPayRef(e.target.value)}
-                  placeholder={payMethod === "Cash" ? "Staff member name" : "Transaction reference number"}
-                  style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13, boxSizing: "border-box" }} />
+                <input type="text"
+                  value={payRef}
+                  onChange={e => setPayRef(e.target.value)}
+                  placeholder={
+                    payMethod === "Cash" ? "e.g. Gurdeep Singh" :
+                    payMethod === "Cheque" ? "e.g. 123456" :
+                    payMethod === "UPI" ? "e.g. T2411240001234567" : "e.g. NEFT/RTGS UTR number"
+                  }
+                  style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "9px 12px", fontSize: 13, boxSizing: "border-box" }}
+                />
               </div>
+
+              {/* Cheque extra fields */}
+              {payMethod === "Cheque" && (
+                <div style={{ background: "#fef9c3", border: "1px solid #fde047", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#713f12" }}>
+                  ⚠️ Cheque payment is pending until cleared. Status will be marked as "Cheque Received". Update to cleared once bank confirms.
+                </div>
+              )}
+
+              {/* Remarks */}
               <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 4 }}>Remarks (Optional)</label>
-                <input type="text" value={payRemarks} onChange={e => setPayRemarks(e.target.value)}
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#0f172a", marginBottom: 5 }}>Remarks (Optional)</label>
+                <input type="text"
+                  value={payRemarks}
+                  onChange={e => setPayRemarks(e.target.value)}
                   placeholder={`Payment for Order ${o.num}`}
-                  style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13, boxSizing: "border-box" }} />
+                  style={{ width: "100%", border: "1.5px solid #e2e8f0", borderRadius: 8, padding: "9px 12px", fontSize: 13, boxSizing: "border-box" }}
+                />
               </div>
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
-                <button type="button" onClick={() => setShowPaymentModal(false)} style={{ padding: "8px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: 12.5 }}>Cancel</button>
-                <button type="submit" style={{ padding: "8px 20px", borderRadius: 8, background: "#059669", color: "#fff", border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12.5 }}>✓ Record Payment</button>
+
+              {/* Overpayment note */}
+              {payAmount > 0 && payAmount > balanceDue && balanceDue >= 0 && (
+                <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#1d4ed8" }}>
+                  💡 Amount exceeds balance due by ₹{(payAmount - balanceDue).toLocaleString("en-IN")} — excess will be recorded as prepaid advance for future orders.
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 4 }}>
+                <button type="button" onClick={() => setShowPaymentModal(false)}
+                  style={{ padding: "10px 18px", borderRadius: 8, border: "1.5px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+                  Cancel
+                </button>
+                <button type="submit"
+                  disabled={payAmount <= 0}
+                  style={{
+                    padding: "10px 24px", borderRadius: 8, background: payAmount > 0 ? "#059669" : "#94a3b8",
+                    color: "#fff", border: "none", cursor: payAmount > 0 ? "pointer" : "not-allowed", fontWeight: 800, fontSize: 13,
+                    display: "flex", alignItems: "center", gap: 6
+                  }}>
+                  <Check size={15} /> Confirm & Record Payment
+                </button>
               </div>
             </form>
           </div>
